@@ -10,6 +10,15 @@ Single-page “mission control” dashboard where **5 AI agents stream live** (w
 - **Streaming**: Server-Sent Events (SSE) over **POST** `/api/simulate`
 - **State**: Zustand
 
+## Demo Video
+
+
+
+https://github.com/user-attachments/assets/7c6a45dd-9404-4b8a-a3ac-a770336064c5
+
+
+
+
 ## AI backends (pick one)
 
 1. **Ollama (local — powers all agent roles)** — install [Ollama](https://ollama.com), then **`ollama pull llama3.2:3b`** (until you pull, you’ll see **404 model not found**). Run **`ollama list`** and set **`OLLAMA_MODEL`** in `backend/.env` to the **exact** name shown (often `llama3.2:3b`). With the backend running, **`GET http://localhost:8787/api/ollama/tags`** returns the same list. In `backend/.env`:
