@@ -1,156 +1,303 @@
-# AI Startup Simulator
+# 💀 AI Civilization with Control Panel
 
-Single-page “mission control” dashboard where **5 AI agents stream live** (word-by-word) while simulating an AI startup across **5 automatic rounds**.
+A sophisticated dual-interface system where AI agents act autonomously in a simulated civilization while humans can monitor, guide, and override their behavior through a comprehensive control panel.
 
-## Tech
+## 🎯 Overview
 
-- **Frontend**: React + Tailwind + Recharts (Vite)
-- **Backend**: Node + Express
-- **AI**: **Ollama** (local, no key — all five agents use your machine), **Groq** (free API), **OpenAI-compatible** (LM Studio), or **Gemini**. Configure `AI_PROVIDER` in `backend/.env` (see `.env.example`).
-- **Streaming**: Server-Sent Events (SSE) over **POST** `/api/simulate`
-- **State**: Zustand
+The system creates a living AI civilization where agents with unique personalities, emotions, and roles interact in real-time. Humans can observe the simulation through a game-like view and intervene through an advanced control dashboard.
 
-## Demo Video
+## 🏗️ System Architecture
+
+### **Dual Interface Design**
+- **Simulation View**: Real-time pixel-art visualization of the civilization
+- **Control Panel**: Advanced monitoring and intervention dashboard
+
+- ### Demo Video
+
+- 
+
+https://github.com/user-attachments/assets/e1b9f046-199e-4e2e-92cd-30bc417a6e7e
 
 
+- 
 
-https://github.com/user-attachments/assets/7c6a45dd-9404-4b8a-a3ac-a770336064c5
+### **Core Components**
+- **AI Agent System**: Autonomous decision-making with traits and emotions
+- **Simulation Engine**: Real-time world simulation with environment
+- **WebSocket Communication**: Instant sync between interfaces
+- **Behavior Analytics**: Pattern detection and alert system
 
+## 🤖 AI Agent System
 
+### **Agent Roles**
+- **Warrior**: High aggression, defends territory and allies
+- **Trader**: Cooperative, seeks profitable exchanges
+- **Explorer**: Curious, discovers new areas and resources
+- **Diplomat**: High empathy, resolves conflicts
+- **Thief**: High greed, steals from wealthy targets
+- **Healer**: High empathy, helps injured agents
+- **Leader**: Balanced traits, coordinates civilization
 
+### **Personality Traits**
+Each agent has 8 core traits (0-1 scale):
+- **Aggression**: Tendency to attack/steal
+- **Cooperation**: Willingness to work with others
+- **Intelligence**: Decision-making quality
+- **Risk Tolerance**: Comfort with dangerous actions
+- **Empathy**: Concern for others' wellbeing
+- **Greed**: Desire for wealth accumulation
+- **Curiosity**: Drive to explore
+- **Loyalty**: Commitment to allies
 
-## AI backends (pick one)
+### **Emotional System**
+Agents experience 6 emotions based on events:
+- **Happy**: Successful cooperation/trade
+- **Angry**: Failed attacks, being stolen from
+- **Neutral**: Default state
+- **Fearful**: Low health, being attacked
+- **Excited**: Successful exploration, victories
+- **Sad**: Low resources, continuous failures
 
-1. **Ollama (local — powers all agent roles)** — install [Ollama](https://ollama.com), then **`ollama pull llama3.2:3b`** (until you pull, you’ll see **404 model not found**). Run **`ollama list`** and set **`OLLAMA_MODEL`** in `backend/.env` to the **exact** name shown (often `llama3.2:3b`). With the backend running, **`GET http://localhost:8787/api/ollama/tags`** returns the same list. In `backend/.env`:
-   - `AI_PROVIDER=ollama`
-   - `OLLAMA_MODEL=llama3.2:3b`
-   - `OLLAMA_MAX_CONCURRENT=1` recommended on laptops (Round 2 otherwise starts up to 4 chats; increase only if your GPU/RAM can handle it).
+### **Decision Making**
+Agents make autonomous decisions based on:
+- **Role-specific behavior patterns**
+- **Current emotional state**
+- **Personality traits**
+- **Memory of past interactions**
+- **Environmental context**
+- **Nearby agents and resources**
 
-2. **Groq (cloud, free tier)** — key from [Groq Console](https://console.groq.com/keys). In `backend/.env`:
-   - `AI_PROVIDER=groq`
-   - `GROQ_API_KEY=...`
+## 🎮 Simulation Features
 
-3. **LM Studio / OpenAI-compatible** — enable the local server, then:
-   - `AI_PROVIDER=openai_compatible`
-   - `OPENAI_BASE_URL=http://127.0.0.1:1234/v1` (or your server’s `/v1` URL)
-   - `OPENAI_MODEL=` the id shown in LM Studio
+### **Environment**
+- **50x50 grid world** with different zones
+- **Resource nodes** that spawn randomly
+- **Special zones**: Trade, Battle, Healing areas
+- **Dynamic resource generation**
 
-4. **Gemini** — [Google AI Studio](https://aistudio.google.com/apikey), `AI_PROVIDER=gemini`, `GEMINI_API_KEY=...`. Default model is **`gemini-2.5-flash`** (`gemini-1.5-flash` often returns **404** on current APIs). Try **`gemini-2.5-flash-lite`** or **`gemini-flash-latest`** if needed.
+### **Agent Actions**
+- **Trade**: Exchange resources with other agents
+- **Attack**: Damage other agents (costs energy)
+- **Steal**: Attempt to take resources (40% success)
+- **Cooperate**: Work together for mutual benefit
+- **Defend**: Protect allies from attacks
+- **Explore**: Move to new areas
+- **Rest**: Recover health and energy
+- **Help**: Heal injured agents
+- **Negotiate**: Improve relationships
+- **Flee**: Escape from dangerous situations
 
-5. **`AI_PROVIDER=auto`** — uses **Groq if `GROQ_API_KEY` is set**; else Gemini if a Gemini key exists; else **Ollama**. To keep a Gemini key in `.env` but **skip** it: `DISABLE_GEMINI=1`.
+### **Real-time Visualization**
+- **Pixel-style agents** with role-based colors
+- **Floating action text** showing current behaviors
+- **Emotion indicators** above agents
+- **Resource nodes** and special zones
+- **Smooth movement animations**
 
-## Project structure
+## 🎛️ Control Panel Features
 
-```
-backend/
-  server.js
-  routes/simulate.js
-  agents/
-    ceo.js
-    designer.js
-    developer.js
-    marketer.js
-    finance.js
-  utils/
-    orchestrator.js
-    llm.js
-    sse.js
-  .env.example
+### **Agent Monitoring**
+- **Live agent cards** with complete status
+- **Real-time statistics** (balance, health, energy)
+- **Personality trait visualization**
+- **Current action and AI reasoning**
+- **Emotional state tracking**
 
-frontend/
-  index.html
-  vite.config.js
-  tailwind.config.js
-  postcss.config.js
-  src/
-    App.jsx
-    main.jsx
-    styles.css
-    components/
-      TopBar.jsx
-      AgentPanel.jsx
-      AgentAvatar.jsx
-      StatusBadge.jsx
-      MetricsDashboard.jsx
-      RevenueChart.jsx
-      InteractionFeed.jsx
-      VerdictCard.jsx
-      TypingIndicator.jsx
-      ConnectionLines.jsx
-    hooks/
-      useSimulation.js
-    utils/
-      agentConfig.js
-      formatters.js
-```
+### **Manual Controls**
+- **Stop Agent**: Halt current action immediately
+- **Assign Task**: Give specific goals (maximize profit, avoid conflict, target agent)
+- **Override Action**: Force specific behavior
+- **Toggle Mode**: Switch between autonomous and manual control
+- **Heal Agent**: Restore full health and energy
+- **Give Resources**: Provide additional balance
 
-## Setup
+### **Behavior Analytics**
+- **Pattern detection** for abnormal behavior
+- **Alert system** for concerning patterns:
+  - Continuous failure rates
+  - Excessive aggression
+  - Social isolation
+  - Critical resource levels
+  - Unusual emotional states
 
-### 1) Backend env
+### **Statistics Dashboard**
+- **Role distribution** charts
+- **Emotion distribution** analysis
+- **Civilization metrics** (total wealth, average health)
+- **Real-time event logs**
+- **Performance tracking**
 
-Copy the example env file and add your key:
+## 🔄 Real-time Synchronization
 
+### **WebSocket Communication**
+- **Instant updates** across all connected clients
+- **Live agent actions** broadcast in real-time
+- **Behavior alerts** pushed immediately
+- **Synchronized simulation state**
+
+### **Multi-client Support**
+- **Multiple observers** can watch simultaneously
+- **Shared control** permissions
+- **Consistent state** across all interfaces
+
+## 🚀 Getting Started
+
+### **Installation**
 ```bash
-cd backend
-copy .env.example .env
+cd ai_civilization
+pip install -r requirements.txt
 ```
 
-Edit `backend/.env` (see **`backend/.env.example`**). For fully local runs, use **`AI_PROVIDER=ollama`** and install Ollama + pull a model.
-
-### 2) Install deps
-
+### **Running the Application**
 ```bash
-cd backend
-npm install
-
-cd ..\frontend
-npm install
+python app.py
 ```
 
-### 3) Run
+### **Access Points**
+- **Simulation View**: http://localhost:5000/
+- **Control Panel**: http://localhost:5000/control
 
-In two terminals:
+### **Quick Start**
+1. Open both interfaces in separate tabs
+2. Click "Start Simulation" in either interface
+3. Watch agents autonomously interact in the simulation view
+4. Monitor their behavior in the control panel
+5. Intervene manually when desired
 
-```bash
-cd backend
-npm run dev
-```
+## 🎯 Usage Examples
 
-```bash
-cd frontend
-npm run dev
-```
+### **Observing Autonomous Behavior**
+1. Start simulation with 15 agents
+2. Watch warriors defend territories
+3. Observe traders establishing commerce
+4. See diplomats resolving conflicts
+5. Monitor explorers discovering resources
 
-Open the frontend at:
+### **Manual Intervention**
+1. Select an agent in the control panel
+2. Switch to manual mode
+3. Assign specific task: "maximize profit"
+4. Watch agent follow directive
+5. Return to autonomous mode
 
-- `http://localhost:5173`
+### **Behavior Analysis**
+1. Monitor alerts for aggressive agents
+2. Identify isolated agents needing help
+3. Track economic trends across roles
+4. Analyze emotional patterns
+5. Optimize civilization performance
 
-Backend runs at:
+## 🔧 Advanced Features
 
-- `http://localhost:8787`
+### **Memory System**
+Agents remember:
+- **Past interactions** with other agents
+- **Successful/failed actions**
+- **Locations visited**
+- **Agents met**
+- **Interaction patterns**
 
-## API
+### **Relationship System**
+- **Alliance detection** based on positive interactions
+- **Enemy identification** from aggressive behavior
+- **Trust scoring** for cooperation decisions
+- **Reputation tracking** across civilization
 
-### `POST /api/simulate`
+### **Dynamic Difficulty**
+- **Adaptive agent behavior** based on civilization state
+- **Resource scarcity** affecting decision-making
+- **Population dynamics** influencing interactions
+- **Environmental events** creating challenges
 
-Streams SSE events.
+## 📊 Technical Architecture
 
-Body:
+### **Backend (Python)**
+- **Flask** web framework
+- **Socket.IO** for real-time communication
+- **Async simulation** loop
+- **Modular agent system**
 
-```json
-{ "idea": "string", "speed": 1 }
-```
+### **Frontend (HTML/JavaScript)**
+- **Tailwind CSS** for styling
+- **Chart.js** for analytics
+- **Socket.IO client** for real-time updates
+- **Responsive design** patterns
 
-Speed can be `1`, `2`, or `5`.
+### **Data Flow**
+1. Simulation engine updates agents
+2. Changes broadcast via WebSocket
+3. Both interfaces receive updates
+4. Control panel can send commands back
+5. Simulation executes manual controls
 
-Event payloads are JSON and sent as SSE `data:` lines, e.g.:
+## 🎮 Game Mechanics
 
-```json
-{ "type": "agent_token", "agent": "designer", "token": "hello", "round": 2 }
-```
+### **Resource Management**
+- **Starting balance**: 100 units per agent
+- **Energy system**: Actions cost energy
+- **Health system**: Combat reduces health
+- **Resource nodes**: Spawn randomly for collection
 
-The backend may also emit:
+### **Combat System**
+- **Attack damage**: 10-30 points
+- **Success factors**: Agent traits and energy
+- **Defensive actions**: Protect from damage
+- **Healing mechanics**: Restore health over time
 
-```json
-{ "type": "llm_provider", "provider": "gemini" }
-```
+### **Economic System**
+- **Trade mechanics**: Mutual benefit exchanges
+- **Stealing system**: Risk vs reward
+- **Resource generation**: Environmental spawning
+- **Wealth distribution**: Dynamic across roles
+
+## 🔮 Future Enhancements
+
+### **Advanced AI**
+- **Machine learning** for behavior optimization
+- **Neural networks** for decision making
+- **Evolutionary algorithms** for trait adaptation
+- **Natural language** for agent communication
+
+### **Expanded World**
+- **Multiple civilizations** competing
+- **Territory control** mechanics
+- **Technology trees** and upgrades
+- **Environmental disasters** and events
+
+### **Enhanced Controls**
+- **AI training** interfaces
+- **Scenario editor** for custom situations
+- **Performance metrics** and leaderboards
+- **Automated intervention** rules
+
+## 🐛 Troubleshooting
+
+### **Common Issues**
+- **Agents not moving**: Check if simulation is running
+- **No updates**: Verify WebSocket connection
+- **Control not working**: Ensure agent is selected
+- **Performance issues**: Reduce agent count
+
+### **Debug Mode**
+- **Console logs** for action tracking
+- **Event history** for behavior analysis
+- **Performance metrics** for optimization
+- **Error handling** for system stability
+
+## 📄 License
+
+MIT License - feel free to modify and distribute
+
+## 🤝 Contributing
+
+Contributions welcome! Please fork and submit pull requests for:
+- **New agent roles** and behaviors
+- **Enhanced UI components**
+- **Performance optimizations**
+- **Bug fixes and improvements**
+
+---
+
+**Built with ❤️ for creating living AI civilizations**
+
+*Experience the future of AI agent interaction and control!*
