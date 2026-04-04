@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Civilization - Control Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .agent-card {
+            transition: all 0.3s ease;
+        }
+        
+        .agent-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .health-bar {
+            background: linear-gradient(90deg, #ef4444, #f59e0b, #10b981);
+        }
+        
+        .energy-bar {
+            background: linear-gradient(90deg, #3b82f6, #06b6d4);
+        }
+        
+        .balance-bar {
+            background: linear-gradient(90deg, #8b5cf6, #ec4899);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-gray-800 border-b border-gray-700 p-4">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-2xl font-bold text-purple-500">🎛️ Control Panel</h1>
+                    <div class="text-sm text-gray-400">AI Civilization Management</div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-sm">
+                        <span class="text-gray-400">Simulation:</span>
+                        <span id="simStatus" class="font-mono text-green-400">Running</span>
+                    </div>
+                    <div class="text-sm">
+                        <span class="text-gray-400">Time:</span>
+                        <span id="simTime" class="font-mono text-blue-400">0</span>
+                    </div>
+                    <a href="/" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-sm">
+                        Back to Simulation
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-4">
+            <div class="max-w-7xl mx-auto">
+                <!-- Statistics Overview -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="stat-card rounded-lg p-6 text-white">
+                        <div class="text-sm opacity-80">Total Agents</div>
+                        <div class="text-3xl font-bold" id="totalAgents">0</div>
+                    </div>
+                    <div class="stat-card rounded-lg p-6 text-white">
+                        <div class="text-sm opacity-80">Avg Health</div>
+                        <div class="text-3xl font-bold" id="avgHealth">0%</div>
+                    </div>
+                    <div class="stat-card rounded-lg p-6 text-white">
+                        <div class="text-sm opacity-80">Avg Energy</div>
+                        <div class="text-3xl font-bold" id="avgEnergy">0%</div>
+                    </div>
+                    <div class="stat-card rounded-lg p-6 text-white">
+                        <div class="text-sm opacity-80">Total Balance</div>
+                        <div class="text-3xl font-bold" id="totalBalance">$0</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    <!-- Agent List -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-gray-800 rounded-lg p-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <h2 class="text-xl font-semibold">Agents</h2>
+                                <div class="flex space-x-2">
+                                    <button onclick="createRandomAgent()" class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm">
+                                        Add Agent
+                                    </button>
+                                    <button onclick="createMultipleAgents()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm">
+                                        Add 5 Agents
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="space-y-3 max-h-96 overflow-y-auto" id="agentList">
+                                <!-- Agent cards will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Controls & Charts -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <!-- Simulation Controls -->
+                        <div class="bg-gray-800 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold mb-4">Simulation Controls</h3>
+                            <div class="space-y-3">
+                                <button onclick="startSimulation()" class="w-full bg-green-600 hover:bg-green-700 px-4 py-2 rounded">
+                                    Start Simulation
+                                </button>
+                                <button onclick="stopSimulation()" class="w-full bg-red-600 hover:bg-red-700 px-4 py-2 rounded">
+                                    Stop Simulation
+                                </button>
+                                <button onclick="resetSimulation()" class="w-full bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded">
+                                    Reset Simulation
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Role Distribution Chart -->
+                        <div class="bg-gray-800 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold mb-4">Role Distribution</h3>
+                            <canvas id="roleChart" width="200" height="200"></canvas>
+                        </div>
+
+                        <!-- Recent Events -->
+                        <div class="bg-gray-800 rounded-lg p-6">
+                            <h3 class="text-lg font-semibold mb-4">Recent Events</h3>
+                            <div class="space-y-2 text-sm max-h-48 overflow-y-auto" id="recentEvents">
+                                <!-- Events will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        let agents = {};
+        let roleChart = null;
+
+        // Initialize role distribution chart
+        function initializeRoleChart() {
+            const ctx = document.getElementById('roleChart').getContext('2d');
+            roleChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Warrior', 'Trader', 'Explorer', 'Diplomat', 'Thief', 'Healer', 'Leader'],
+                    datasets: [{
+                        data: [0, 0, 0, 0, 0, 0, 0],
+                        backgroundColor: [
+                            '#dc2626',
+                            '#f59e0b',
+                            '#8b5cf6',
+                            '#3b82f6',
+                            '#6b7280',
+                            '#10b981',
+                            '#f97316'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: 'white',
+                                font: {
+                                    size: 10
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update agent list
+        function updateAgentList(agentsData) {
+            const container = document.getElementById('agentList');
+            container.innerHTML = '';
+            
+            agentsData.forEach(agent => {
+                agents[agent.agent_id] = agent;
+                
+                const card = document.createElement('div');
+                card.className = 'agent-card bg-gray-700 rounded-lg p-4';
+                
+                const roleColors = {
+                    'warrior': 'bg-red-600',
+                    'trader': 'bg-yellow-600',
+                    'explorer': 'bg-purple-600',
+                    'diplomat': 'bg-blue-600',
+                    'thief': 'bg-gray-600',
+                    'healer': 'bg-green-600',
+                    'leader': 'bg-orange-600'
+                };
+                
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-3 h-3 ${roleColors[agent.role]} rounded-full"></div>
+                            <div>
+                                <div class="font-semibold">${agent.name}</div>
+                                <div class="text-sm text-gray-400">${agent.role}</div>
+                            </div>
+                        </div>
+                        <div class="text-sm text-gray-400">
+                            ${agent.is_alive ? 'Alive' : 'Dead'}
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Health</span>
+                                <span>${agent.health}%</span>
+                            </div>
+                            <div class="w-full bg-gray-600 rounded-full h-2">
+                                <div class="health-bar h-2 rounded-full" style="width: ${agent.health}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Energy</span>
+                                <span>${agent.energy}%</span>
+                            </div>
+                            <div class="w-full bg-gray-600 rounded-full h-2">
+                                <div class="energy-bar h-2 rounded-full" style="width: ${agent.energy}%"></div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="flex justify-between text-sm mb-1">
+                                <span>Balance</span>
+                                <span>$${agent.balance}</span>
+                            </div>
+                            <div class="w-full bg-gray-600 rounded-full h-2">
+                                <div class="balance-bar h-2 rounded-full" style="width: ${Math.min(100, agent.balance)}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex space-x-2 mt-3">
+                        <button onclick="healAgent('${agent.agent_id}')" class="flex-1 bg-green-600 hover:bg-green-700 px-2 py-1 rounded text-xs">
+                            Heal
+                        </button>
+                        <button onclick="energizeAgent('${agent.agent_id}')" class="flex-1 bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs">
+                            Energize
+                        </button>
+                        <button onclick="giveMoney('${agent.agent_id}')" class="flex-1 bg-yellow-600 hover:bg-yellow-700 px-2 py-1 rounded text-xs">
+                            Give Money
+                        </button>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+        }
+
+        // Update statistics
+        function updateStatistics(stats) {
+            document.getElementById('totalAgents').textContent = stats.total_agents || 0;
+            document.getElementById('avgHealth').textContent = Math.round(stats.avg_health || 0) + '%';
+            document.getElementById('avgEnergy').textContent = Math.round(stats.avg_energy || 0) + '%';
+            document.getElementById('totalBalance').textContent = '$' + (stats.total_balance || 0);
+            document.getElementById('simTime').textContent = stats.simulation_time || 0;
+            
+            // Update role chart
+            if (roleChart && stats.role_distribution) {
+                const roles = ['warrior', 'trader', 'explorer', 'diplomat', 'thief', 'healer', 'leader'];
+                const data = roles.map(role => stats.role_distribution[role] || 0);
+                roleChart.data.datasets[0].data = data;
+                roleChart.update();
+            }
+        }
+
+        // Update recent events
+        function updateRecentEvents(events) {
+            const container = document.getElementById('recentEvents');
+            container.innerHTML = '';
+            
+            events.forEach(event => {
+                const eventEl = document.createElement('div');
+                eventEl.className = 'text-xs p-2 bg-gray-700 rounded mb-2';
+                
+                let content = '';
+                if (event.type === 'agent_combat') {
+                    content = `⚔️ ${event.data.attacker} attacked ${event.data.target}`;
+                } else if (event.type === 'agent_theft') {
+                    content = `💰 ${event.data.thief} stole from ${event.data.target}`;
+                } else if (event.type === 'agent_healing') {
+                    content = `💚 ${event.data.healer} healed ${event.data.target}`;
+                } else if (event.type === 'behavior_alert') {
+                    content = `⚠️ ${event.data.agent_name}: ${event.data.alert}`;
+                }
+                
+                eventEl.innerHTML = `
+                    <div>${content}</div>
+                    <div class="text-gray-500 text-xs">${new Date(event.timestamp).toLocaleTimeString()}</div>
+                `;
+                
+                container.appendChild(eventEl);
+            });
+        }
+
+        // Control functions
+        async function startSimulation() {
+            try {
+                const response = await fetch('/api/start_simulation', { method: 'POST' });
+                const data = await response.json();
+                console.log('Simulation started:', data);
+            } catch (error) {
+                console.error('Error starting simulation:', error);
+            }
+        }
+
+        async function stopSimulation() {
+            try {
+                const response = await fetch('/api/stop_simulation', { method: 'POST' });
+                const data = await response.json();
+                console.log('Simulation stopped:', data);
+            } catch (error) {
+                console.error('Error stopping simulation:', error);
+            }
+        }
+
+        async function resetSimulation() {
+            try {
+                const response = await fetch('/api/reset_simulation', { method: 'POST' });
+                const data = await response.json();
+                console.log('Simulation reset:', data);
+            } catch (error) {
+                console.error('Error resetting simulation:', error);
+            }
+        }
+
+        async function createRandomAgent() {
+            const roles = ['warrior', 'trader', 'explorer', 'diplomat', 'thief', 'healer', 'leader'];
+            const role = roles[Math.floor(Math.random() * roles.length)];
+            const name = `Agent_${Date.now()}`;
+            
+            try {
+                const response = await fetch('/api/create_agent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, role })
+                });
+                const data = await response.json();
+                console.log('Agent created:', data);
+            } catch (error) {
+                console.error('Error creating agent:', error);
+            }
+        }
+
+        async function createMultipleAgents() {
+            for (let i = 0; i < 5; i++) {
+                setTimeout(createRandomAgent, i * 200);
+            }
+        }
+
+        async function healAgent(agentId) {
+            try {
+                const response = await fetch('/api/control_agent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        agent_id: agentId,
+                        command: 'heal',
+                        parameters: { amount: 30 }
+                    })
+                });
+                const data = await response.json();
+                console.log('Agent healed:', data);
+            } catch (error) {
+                console.error('Error healing agent:', error);
+            }
+        }
+
+        async function energizeAgent(agentId) {
+            try {
+                const response = await fetch('/api/control_agent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        agent_id: agentId,
+                        command: 'give_energy',
+                        parameters: { amount: 30 }
+                    })
+                });
+                const data = await response.json();
+                console.log('Agent energized:', data);
+            } catch (error) {
+                console.error('Error energizing agent:', error);
+            }
+        }
+
+        async function giveMoney(agentId) {
+            try {
+                const response = await fetch('/api/control_agent', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        agent_id: agentId,
+                        command: 'give_money',
+                        parameters: { amount: 50 }
+                    })
+                });
+                const data = await response.json();
+                console.log('Money given to agent:', data);
+            } catch (error) {
+                console.error('Error giving money to agent:', error);
+            }
+        }
+
+        // Socket.IO event handlers
+        socket.on('connect', () => {
+            console.log('Connected to control panel');
+            socket.emit('request_update');
+        });
+
+        socket.on('civilization_update', (data) => {
+            updateStatistics(data);
+        });
+
+        socket.on('agents_update', (data) => {
+            updateAgentList(data.agents);
+        });
+
+        socket.on('agent_action', (data) => {
+            console.log('Agent action:', data);
+        });
+
+        socket.on('behavior_alert', (data) => {
+            console.log('Behavior alert:', data);
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeRoleChart();
+            socket.emit('request_update');
+        });
+    </script>
+</body>
+</html>

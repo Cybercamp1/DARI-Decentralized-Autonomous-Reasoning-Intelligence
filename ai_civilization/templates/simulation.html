@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>💀 AI Civilization - Autonomous Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        .pixel-font {
+            font-family: 'Press Start 2P', monospace;
+        }
+        
+        .simulation-grid {
+            display: grid;
+            grid-template-columns: repeat(50, 22px);
+            grid-template-rows: repeat(50, 22px);
+            gap: 2px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 15px;
+            border: 3px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .grid-cell {
+            width: 22px;
+            height: 22px;
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            position: relative;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+            border: 1px solid #4a5568;
+        }
+        
+        .grid-cell.resource {
+            background: linear-gradient(135deg, #4ade80, #22c55e);
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+        }
+        
+        .grid-cell.zone-trade {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        .grid-cell.zone-battle {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+        }
+        
+        .grid-cell.zone-healing {
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+        }
+        
+        .grid-cell.zone-exploration {
+            background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+            box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
+        }
+        
+        .agent {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-radius: 3px;
+            top: 1px;
+            left: 1px;
+            z-index: 10;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .agent.warrior { background: linear-gradient(135deg, #dc2626, #991b1b); }
+        .agent.trader { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .agent.explorer { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+        .agent.diplomat { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+        .agent.thief { background: linear-gradient(135deg, #6b7280, #374151); }
+        .agent.healer { background: linear-gradient(135deg, #10b981, #059669); }
+        .agent.leader { background: linear-gradient(135deg, #f97316, #ea580c); }
+        
+        .agent.dead {
+            background: linear-gradient(135deg, #374151, #1f2937);
+            opacity: 0.6;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .floating-text {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.8));
+            color: white;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 10;
+            animation: fadeInOut 3s ease;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-weight: 600;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            pointer-events: none;
+        }
+        
+        .agent-thought {
+            position: absolute;
+            top: -55px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.8));
+            color: white;
+            padding: 6px 10px;
+            border-radius: 10px;
+            font-size: 10px;
+            white-space: nowrap;
+            z-index: 15;
+            animation: fadeInOut 4s ease;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            font-weight: 500;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            max-width: 180px;
+            text-align: center;
+            pointer-events: none;
+        }
+        
+        .agent-thought::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid rgba(59, 130, 246, 0.8);
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+            20% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            80% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-gray-900 via-purple-900 to-gray-900 border-b border-purple-700 p-4 shadow-lg">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-3xl font-bold pixel-font text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500">💀 AI CIVILIZATION</h1>
+                    <div class="text-sm text-purple-300 font-medium">Autonomous Simulation</div>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <div class="text-sm bg-gray-800 px-3 py-2 rounded-lg border border-gray-600">
+                        <span class="text-gray-400">Time:</span>
+                        <span id="simTime" class="font-mono text-green-400 font-bold">0</span>
+                    </div>
+                    <div class="text-sm bg-gray-800 px-3 py-2 rounded-lg border border-gray-600">
+                        <span class="text-gray-400">Agents:</span>
+                        <span id="agentCount" class="font-mono text-blue-400 font-bold">0</span>
+                    </div>
+                    <div class="text-sm bg-gray-800 px-3 py-2 rounded-lg border border-gray-600">
+                        <span class="text-gray-400">Weather:</span>
+                        <span id="weather" class="font-mono text-yellow-400 font-bold">Clear</span>
+                    </div>
+                    <button onclick="toggleSimulation()" class="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 shadow-lg">
+                        <span id="simToggle">Start</span>
+                    </button>
+                    <a href="/control" class="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 px-6 py-2 rounded-lg text-sm font-semibold transition-all duration-200 shadow-lg">
+                        Control Panel
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-4">
+            <div class="max-w-7xl mx-auto">
+                <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                    <!-- Simulation Grid -->
+                    <div class="lg:col-span-3">
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-2xl border border-gray-700">
+                            <div class="flex items-center justify-between mb-6">
+                                <h2 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Autonomous Civilization</h2>
+                                <div class="text-xs bg-gray-700 px-3 py-1 rounded-full border border-gray-600">
+                                    <span>AI Intelligence: </span>
+                                    <span id="aiStatus" class="text-green-400 font-semibold">Active</span>
+                                </div>
+                            </div>
+                            <div class="relative overflow-auto max-h-[600px]">
+                                <div id="simulationGrid" class="simulation-grid">
+                                    <!-- Grid cells will be generated by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Info Panel -->
+                    <div class="space-y-4">
+                        <!-- Sponsor Section -->
+                        <div class="bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-xl p-6 shadow-2xl border border-purple-700/50 backdrop-blur-sm">
+                            <h3 class="text-lg font-bold mb-4 bg-gradient-to-r from-purple-400 to-blue-500 bg-clip-text text-transparent">🤝 Sponsor</h3>
+                            <div class="space-y-3">
+                                <div class="bg-gray-800/80 rounded-lg p-4 border border-gray-600 hover:border-purple-500 transition-all duration-300 cursor-pointer">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-blue-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                                            AI
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-semibold text-purple-300">AI Tech Solutions</div>
+                                            <div class="text-xs text-gray-400">Powering Intelligent Civilizations</div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 text-xs text-gray-400">
+                                        Advanced AI agents for autonomous simulations
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-gray-800/80 rounded-lg p-4 border border-gray-600 hover:border-green-500 transition-all duration-300 cursor-pointer">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">
+                                            🚀
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-semibold text-green-300">Quantum Computing</div>
+                                            <div class="text-xs text-gray-400">Next-Gen Processing</div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 text-xs text-gray-400">
+                                        Ultra-fast AI simulation processing
+                                    </div>
+                                </div>
+                                
+                                <div class="text-center">
+                                    <button class="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 px-4 py-2 rounded-lg text-xs font-semibold transition-all duration-200 shadow-lg">
+                                        Become a Sponsor
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- AI Statistics -->
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-2xl border border-gray-700">
+                            <h3 class="text-xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">AI Statistics</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="flex justify-between items-center bg-gray-700 p-3 rounded-lg">
+                                    <span class="text-gray-300">Total Balance:</span>
+                                    <span id="totalBalance" class="font-mono text-yellow-400 font-bold text-lg">$0</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-gray-700 p-3 rounded-lg">
+                                    <span class="text-gray-300">Avg Health:</span>
+                                    <span id="avgHealth" class="font-mono text-green-400 font-bold text-lg">0</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-gray-700 p-3 rounded-lg">
+                                    <span class="text-gray-300">Avg Energy:</span>
+                                    <span id="avgEnergy" class="font-mono text-blue-400 font-bold text-lg">0</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-gray-700 p-3 rounded-lg">
+                                    <span class="text-gray-300">Resources:</span>
+                                    <span id="resourceCount" class="font-mono text-purple-400 font-bold text-lg">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Role Distribution -->
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-2xl border border-gray-700">
+                            <h3 class="text-xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">Agent Roles</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="flex justify-between items-center bg-gray-700 p-3 rounded-lg">
+                                    <span class="text-red-400 font-semibold">⚔️ Warriors:</span>
+                                    <span id="warriorCount" class="font-mono text-red-400 font-bold">0</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-gray-700 p-3 rounded-lg">
+                                    <span class="text-yellow-400 font-semibold">💰 Traders:</span>
+                                    <span id="traderCount" class="font-mono text-yellow-400 font-bold">0</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-gray-700 p-3 rounded-lg">
+                                    <span class="text-purple-400 font-semibold">🧭 Explorers:</span>
+                                    <span id="explorerCount" class="font-mono text-purple-400 font-bold">0</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-gray-700 p-3 rounded-lg">
+                                    <span class="text-blue-400 font-semibold">🤝 Diplomats:</span>
+                                    <span id="diplomatCount" class="font-mono text-blue-400 font-bold">0</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-gray-700 p-3 rounded-lg">
+                                    <span class="text-green-400 font-semibold">💚 Healers:</span>
+                                    <span id="healerCount" class="font-mono text-green-400 font-bold">0</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-gray-700 p-3 rounded-lg">
+                                    <span class="text-orange-400 font-semibold">👑 Leaders:</span>
+                                    <span id="leaderCount" class="font-mono text-orange-400 font-bold">0</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-gray-700 p-3 rounded-lg">
+                                    <span class="text-gray-400 font-semibold">🗡️ Thieves:</span>
+                                    <span id="thiefCount" class="font-mono text-gray-400 font-bold">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Events -->
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-2xl border border-gray-700">
+                            <h3 class="text-xl font-bold mb-4 bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">Recent Events</h3>
+                            <div id="recentEvents" class="space-y-3 text-sm max-h-64 overflow-y-auto">
+                                <!-- Events will be populated here -->
+                            </div>
+                        </div>
+
+                        <!-- Legend -->
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-2xl border border-gray-700">
+                            <h3 class="text-xl font-bold mb-4 bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">Legend</h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-5 h-5 bg-gradient-to-br from-red-600 to-red-800 rounded shadow-lg"></div>
+                                    <span class="text-red-400 font-semibold">Warrior</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-5 h-5 bg-gradient-to-br from-yellow-500 to-yellow-700 rounded shadow-lg"></div>
+                                    <span class="text-yellow-400 font-semibold">Trader</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-5 h-5 bg-gradient-to-br from-purple-500 to-purple-700 rounded shadow-lg"></div>
+                                    <span class="text-purple-400 font-semibold">Explorer</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-5 h-5 bg-gradient-to-br from-blue-500 to-blue-700 rounded shadow-lg"></div>
+                                    <span class="text-blue-400 font-semibold">Diplomat</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-5 h-5 bg-gradient-to-br from-green-500 to-green-700 rounded shadow-lg"></div>
+                                    <span class="text-green-400 font-semibold">Healer</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-5 h-5 bg-gradient-to-br from-orange-500 to-orange-700 rounded shadow-lg"></div>
+                                    <span class="text-orange-400 font-semibold">Leader</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-5 h-5 bg-gradient-to-br from-gray-500 to-gray-700 rounded shadow-lg"></div>
+                                    <span class="text-gray-400 font-semibold">Thief</span>
+                                </div>
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-5 h-5 bg-gradient-to-br from-green-400 to-green-600 rounded shadow-lg"></div>
+                                    <span class="text-green-300 font-semibold">Resource</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        let agents = {};
+        let environment = {};
+        let simulationRunning = false;
+
+        // Initialize simulation grid
+        function initializeGrid() {
+            const grid = document.getElementById('simulationGrid');
+            grid.innerHTML = '';
+            
+            for (let y = 0; y < 50; y++) {
+                for (let x = 0; x < 50; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.dataset.x = x;
+                    cell.dataset.y = y;
+                    grid.appendChild(cell);
+                }
+            }
+        }
+
+        // Update environment
+        function updateEnvironment(envData) {
+            environment = envData;
+            
+            // Clear previous environment
+            document.querySelectorAll('.grid-cell').forEach(cell => {
+                cell.className = 'grid-cell';
+            });
+            
+            // Add resources
+            envData.resources.forEach(([pos, amount]) => {
+                const [x, y] = pos;
+                const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+                if (cell) {
+                    cell.classList.add('resource');
+                }
+            });
+            
+            // Add zones
+            Object.entries(envData.zones).forEach(([zoneName, positions]) => {
+                positions.forEach(pos => {
+                    const [x, y] = pos;
+                    const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+                    if (cell) {
+                        cell.classList.add(`zone-${zoneName}`);
+                    }
+                });
+            });
+            
+            // Update weather display
+            document.getElementById('weather').textContent = envData.environmental_conditions.weather.charAt(0).toUpperCase() + envData.environmental_conditions.weather.slice(1);
+        }
+
+        // Update agents
+        function updateAgents(agentsData) {
+            // Remove old agents
+            document.querySelectorAll('.agent').forEach(agent => agent.remove());
+            
+            agents = {};
+            
+            agentsData.forEach(agent => {
+                agents[agent.agent_id] = agent;
+                
+                if (agent.is_alive) {
+                    createAgentElement(agent);
+                }
+            });
+        }
+
+        // Create agent element
+        function createAgentElement(agent) {
+            const [x, y] = agent.position;
+            const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+            
+            if (cell) {
+                const agentEl = document.createElement('div');
+                agentEl.className = `agent ${agent.role}`;
+                agentEl.id = `agent-${agent.agent_id}`;
+                agentEl.textContent = agent.name[0].toUpperCase();
+                cell.appendChild(agentEl);
+                
+                // Add thought bubble with agent's current action/thought
+                if (agent.current_action && agent.current_action !== 'idle') {
+                    const thoughtEl = document.createElement('div');
+                    thoughtEl.className = 'agent-thought';
+                    
+                    // Generate contextual thought based on role and action
+                    const thought = generateAgentThought(agent);
+                    thoughtEl.textContent = thought;
+                    
+                    cell.appendChild(thoughtEl);
+                    
+                    // Remove thought bubble after animation
+                    setTimeout(() => {
+                        if (thoughtEl.parentNode) {
+                            thoughtEl.remove();
+                        }
+                    }, 4000);
+                }
+            }
+        }
+        
+        // Generate contextual thought based on agent role and current action
+        function generateAgentThought(agent) {
+            // Use the agent's thought from backend if available, otherwise generate one
+            if (agent.thought && agent.thought !== 'idle') {
+                return agent.thought;
+            }
+            
+            const action = agent.current_action || 'idle';
+            const role = agent.role;
+            
+            const thoughts = {
+                warrior: {
+                    attack: "⚔️ Attacking enemy!",
+                    patrol: "🛡️ Patrolling area",
+                    explore: "🗺️ Exploring territory",
+                    idle: "⚔️ Ready for battle"
+                },
+                trader: {
+                    trade: "💰 Trading goods",
+                    explore: "🔍 Seeking resources",
+                    idle: "💼 Ready to trade"
+                },
+                explorer: {
+                    explore: "🧭 Discovering new areas",
+                    idle: "🗺️ Ready to explore"
+                },
+                diplomat: {
+                    diplomacy: "🤝 Negotiating peace",
+                    explore: "🔍 Finding allies",
+                    idle: "🕊️ Ready to negotiate"
+                },
+                thief: {
+                    steal: "💰 Stealing resources",
+                    sneak: "🥷 Sneaking around",
+                    idle: "🗡️ Looking for targets"
+                },
+                healer: {
+                    heal: "💚 Healing allies",
+                    patrol: "🔍 Searching for wounded",
+                    idle: "💊 Ready to heal"
+                },
+                leader: {
+                    coordinate: "👑 Coordinating team",
+                    explore: "🗺️ Leading expedition",
+                    idle: "👑 Ready to lead"
+                }
+            };
+            
+            return thoughts[role]?.[action] || `${role} is ${action}ing`;
+        }
+
+        // Handle agent action
+        function handleAgentAction(data) {
+            // Create floating text for action
+            const agent = agents[data.agent_id];
+            if (!agent) return;
+            
+            const [x, y] = agent.position;
+            const cell = document.querySelector(`[data-x="${x}"][data-y="${y}"]`);
+            
+            if (cell) {
+                // Create action floating text
+                const actionText = document.createElement('div');
+                actionText.className = 'floating-text';
+                actionText.textContent = data.message || `${agent.name} is ${agent.current_action}`;
+                actionText.style.left = '50%';
+                actionText.style.top = '-25px';
+                cell.appendChild(actionText);
+                
+                // Create thought bubble with contextual thinking
+                const thoughtEl = document.createElement('div');
+                thoughtEl.className = 'agent-thought';
+                
+                // Generate contextual thought based on role and action
+                const thought = generateAgentThought(agent);
+                thoughtEl.textContent = thought;
+                
+                cell.appendChild(thoughtEl);
+                
+                // Remove both after animations
+                setTimeout(() => {
+                    if (actionText.parentNode) actionText.remove();
+                    if (thoughtEl.parentNode) thoughtEl.remove();
+                }, 4000);
+            }
+            
+            // Update recent events
+            updateRecentEvents(data);
+        }
+
+        // Update recent events
+        function updateRecentEvents(event) {
+            const container = document.getElementById('recentEvents');
+            const eventEl = document.createElement('div');
+            eventEl.className = 'text-xs p-3 bg-gradient-to-r from-gray-700 to-gray-800 rounded-lg mb-2 border border-gray-600 shadow-lg';
+            
+            const agent = agents[event.agent_id];
+            
+            eventEl.innerHTML = `
+                <div class="font-semibold text-blue-400 mb-1">${agent?.name || 'Unknown'}</div>
+                <div class="text-gray-300 text-sm mb-1">${event.message}</div>
+                <div class="text-gray-500 text-xs">${new Date().toLocaleTimeString()}</div>
+            `;
+            
+            container.insertBefore(eventEl, container.firstChild);
+            
+            // Keep only last 10 events
+            while (container.children.length > 10) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        // Update statistics
+        function updateStatistics(stats) {
+            document.getElementById('simTime').textContent = stats.simulation_time || 0;
+            document.getElementById('agentCount').textContent = stats.total_agents || 0;
+            document.getElementById('totalBalance').textContent = stats.total_balance || 0;
+            document.getElementById('avgHealth').textContent = Math.round(stats.avg_health || 0);
+            document.getElementById('avgEnergy').textContent = Math.round(stats.avg_energy || 0);
+            document.getElementById('resourceCount').textContent = environment.resource_count || 0;
+            
+            // Update role distribution
+            const roles = stats.role_distribution || {};
+            document.getElementById('warriorCount').textContent = roles.warrior || 0;
+            document.getElementById('traderCount').textContent = roles.trader || 0;
+            document.getElementById('explorerCount').textContent = roles.explorer || 0;
+            document.getElementById('diplomatCount').textContent = roles.diplomat || 0;
+            document.getElementById('healerCount').textContent = roles.healer || 0;
+            document.getElementById('leaderCount').textContent = roles.leader || 0;
+        }
+
+        // Toggle simulation
+        async function toggleSimulation() {
+            const button = document.getElementById('simToggle');
+            
+            try {
+                const response = await fetch('/api/start_simulation', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.success) {
+                    simulationRunning = true;
+                    button.textContent = 'Stop';
+                    button.className = 'bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm';
+                    document.getElementById('aiStatus').textContent = 'Active';
+                    document.getElementById('aiStatus').className = 'text-green-400';
+                } else {
+                    // Try stopping instead
+                    const stopResponse = await fetch('/api/stop_simulation', { method: 'POST' });
+                    const stopData = await stopResponse.json();
+                    
+                    if (stopData.success) {
+                        simulationRunning = false;
+                        button.textContent = 'Start';
+                        button.className = 'bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded text-sm';
+                        document.getElementById('aiStatus').textContent = 'Paused';
+                        document.getElementById('aiStatus').className = 'text-yellow-400';
+                    }
+                }
+            } catch (error) {
+                console.error('Error toggling simulation:', error);
+            }
+        }
+
+        // Socket.IO event handlers
+        socket.on('connect', () => {
+            console.log('Connected to simulation server');
+            socket.emit('request_update');
+        });
+
+        socket.on('civilization_update', (data) => {
+            updateStatistics(data);
+        });
+
+        socket.on('agents_update', (data) => {
+            updateAgents(data.agents);
+        });
+
+        socket.on('environment_update', (data) => {
+            updateEnvironment(data);
+        });
+
+        socket.on('agent_action', (data) => {
+            handleAgentAction(data);
+        });
+
+        socket.on('behavior_alert', (data) => {
+            console.log('Behavior alert:', data);
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeGrid();
+            
+            // Request initial data
+            socket.emit('request_update');
+        });
+    </script>
+</body>
+</html>
