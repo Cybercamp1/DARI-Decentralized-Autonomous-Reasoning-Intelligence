@@ -301,3 +301,5 @@ Contributions welcome! Please fork and submit pull requests for:
 **Built with ❤️ for creating living AI civilizations**
 
 *Experience the future of AI agent interaction and control!*
+#   D A R I - D e c e n t r a l i z e d - A u t o n o m o u s - R e a s o n i n g - I n t e l l i g e n c e  
+ 
