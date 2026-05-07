@@ -1,0 +1,27 @@
+# Logs and Databases
+ai_civilization/backend/data/*.json
+*.log
+*.db
+
+# Node dependencies
+node_modules/
+**/node_modules/
+
+# Environment variables
+.env
+**/.env
+
+# IDEs and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+venv/
+
+# Build outputs
+dist/
+build/

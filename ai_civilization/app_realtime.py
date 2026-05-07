@@ -5,7 +5,7 @@ import threading
 import time
 from datetime import datetime
 
-from src.realtime.business_manager import RealTimeBusinessManager
+from src.realtime.dao_manager import DaoManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -16,7 +16,7 @@ app.config['SECRET_KEY'] = 'ai_civilization_realtime_secret'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Global variables
-business_manager = None
+dao_manager = None
 
 # Routes
 @app.route('/')
@@ -57,16 +57,24 @@ def control():
 @app.route('/api/status')
 def get_status():
     """Get civilization status"""
-    if business_manager:
-        return jsonify(business_manager.get_system_status())
-    return jsonify({"error": "Business manager not initialized"})
+    if dao_manager:
+        return jsonify({
+            'treasury': dao_manager.treasury,
+            'risk': dao_manager.risk_score,
+            'proposals': dao_manager.active_proposals
+        })
+    return jsonify({"error": "DAO manager not initialized"})
 
 @app.route('/api/realtime/status')
 def get_realtime_status():
     """Get real-time business status"""
-    if business_manager:
-        return jsonify(business_manager.get_system_status())
-    return jsonify({"error": "Business manager not initialized"})
+    if dao_manager:
+        return jsonify({
+            'treasury': dao_manager.treasury,
+            'risk': dao_manager.risk_score,
+            'proposals': dao_manager.active_proposals
+        })
+    return jsonify({"error": "DAO manager not initialized"})
 
 # SocketIO event handlers
 @socketio.on('connect')
@@ -76,109 +84,29 @@ def handle_connect():
     emit('connected', {'message': 'Connected to AI Business Network'})
     
     # Send initial data
-    if business_manager:
-        status = business_manager.get_system_status()
-        emit('system_status', status)
+    if dao_manager:
+        dao_manager.update_metrics()
 
 @socketio.on('disconnect')
 def handle_disconnect():
     """Handle client disconnection"""
     logger.info("Client disconnected from real-time dashboard")
 
-@socketio.on('get_system_status')
-def handle_get_status():
-    """Handle system status request"""
-    if business_manager:
-        status = business_manager.get_system_status()
-        emit('system_status', status)
-
-@socketio.on('user_message')
+@socketio.on('user_command')
 def handle_user_message(data):
     """Handle user messages"""
-    if business_manager:
-        business_manager.handle_user_message(data)
-
-@socketio.on('request_trading_update')
-def handle_trading_update():
-    """Handle trading update request"""
-    if business_manager:
-        trader = business_manager.agents.get("trader_001")
-        if trader:
-            # Generate fresh signals
-            symbols = ["BTC", "ETH", "AAPL", "GOOGL", "TSLA"]
-            for symbol in symbols:
-                signal = trader.analyze_market(symbol)
-                if signal.confidence > 0.5:
-                    emit('trading_signal', {
-                        'agent_id': 'trader_001',
-                        'agent_name': 'Alpha Trader',
-                        'symbol': signal.symbol,
-                        'action': signal.action,
-                        'price': signal.price,
-                        'confidence': signal.confidence,
-                        'reason': signal.reason,
-                        'timestamp': signal.timestamp.isoformat()
-                    })
-
-@socketio.on('request_dropshipping_update')
-def handle_dropshipping_update():
-    """Handle dropshipping update request"""
-    if business_manager:
-        dropshipper = business_manager.agents.get("dropship_001")
-        if dropshipper:
-            performance = dropshipper.analyze_business_performance()
-            
-            # Get recent orders
-            recent_orders = []
-            for order_id, order in list(dropshipper.orders.items())[-5:]:
-                product = dropshipper.products.get(order.product_id)
-                recent_orders.append({
-                    'id': order_id,
-                    'product_name': product.name if product else 'Unknown',
-                    'total_price': order.total_price,
-                    'status': order.status,
-                    'order_date': order.order_date.isoformat()
-                })
-            
-            emit('dropshipping_update', {
-                'agent_id': 'dropship_001',
-                'agent_name': 'Logistics Master',
-                'performance': performance,
-                'orders': recent_orders
-            })
-
-@socketio.on('assign_task')
-def handle_task_assignment(data):
-    """Handle task assignment"""
-    if business_manager:
-        agent_id = data.get('agent_id')
-        task_description = data.get('task_description')
-        
-        if agent_id in business_manager.agents:
-            # Create task
-            task_id = business_manager.chat_system.send_message(
-                sender="user",
-                recipient=agent_id,
-                message_type="task_assignment",
-                content=task_description,
-                priority="medium"
-            )
-            
-            emit('task_assigned', {
-                'task_id': task_id,
-                'agent_id': agent_id,
-                'description': task_description
-            })
+    if dao_manager:
+        dao_manager.handle_user_command(data)
 
 def initialize_business_manager():
     """Initialize the business manager"""
-    global business_manager
+    global dao_manager
     try:
-        business_manager = RealTimeBusinessManager(socketio)
-        logger.info("Business manager initialized successfully")
+        dao_manager = DaoManager(socketio)
+        logger.info("DAO manager initialized successfully")
         return True
     except Exception as e:
-        logger.error(f"Failed to initialize business manager: {e}")
+        logger.error(f"Failed to initialize DAO manager: {e}")
         return False
 
 def run_background_tasks():
@@ -193,4 +121,4 @@ if __name__ == '__main__':
     bg_thread = threading.Thread(target=run_background_tasks, daemon=True)
     bg_thread.start()
     
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)

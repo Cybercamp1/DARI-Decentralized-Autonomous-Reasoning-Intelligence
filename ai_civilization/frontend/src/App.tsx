@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Terminal, Send, DollarSign } from 'lucide-react';
+import { Terminal, Send, ShieldAlert, Activity, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { io, Socket } from 'socket.io-client';
 
-type AgentStatus = 'EXECUTING' | 'NEEDS_HELP' | 'BLOCKED' | 'IDLE';
+type AgentStatus = 'ACTIVE' | 'EXECUTING' | 'ANALYZING' | 'MONITORING' | 'COMMUNICATING' | 'ALERT' | 'IDLE';
 
 interface Agent {
   id: string;
@@ -10,33 +11,43 @@ interface Agent {
   role: string;
   status: AgentStatus;
   task: string;
-  integration: string; // SDK or API the agent is using
+  integration: string;
   position: { top: string; left: string }; 
+}
+
+interface AIProof {
+  id: string;
+  time: string;
+  agent: string;
+  task: string;
+  status: string;
+  tx_hash: string;
 }
 
 export default function App() {
   const [agents, setAgents] = useState<Record<string, Agent>>({
-    'evaluator': { id: 'evaluator', name: 'Evaluator Core', role: 'Risk', status: 'IDLE', task: 'Awaiting signal...', integration: 'Zerion API', position: { top: '48%', left: '26%' } },
-    'researcher': { id: 'researcher', name: 'Deep Web Intel', role: 'Research', status: 'EXECUTING', task: 'Scraping supplier APIs...', integration: 'Allium Data Catalog', position: { top: '48%', left: '50%' } },
-    'verifier': { id: 'verifier', name: 'Verifier Node', role: 'Compliance', status: 'IDLE', task: 'Standing by...', integration: 'Sui Move / CLI', position: { top: '48%', left: '74%' } },
+    'evaluator': { id: 'evaluator', name: 'Proposal Analysis', role: 'Risk', status: 'IDLE', task: 'Awaiting proposals...', integration: 'Snapshot API', position: { top: '48%', left: '26%' } },
+    'researcher': { id: 'researcher', name: 'Security Intel', role: 'Security', status: 'MONITORING', task: 'Scanning mempool...', integration: 'Forta Network', position: { top: '48%', left: '50%' } },
+    'verifier': { id: 'verifier', name: 'Governance Val.', role: 'Compliance', status: 'IDLE', task: 'Standing by...', integration: 'Ethers.js', position: { top: '48%', left: '74%' } },
     
-    'strategist': { id: 'strategist', name: 'Global Strat', role: 'Strategy', status: 'EXECUTING', task: 'Monitoring Alpha...', integration: 'Myriad SDK', position: { top: '85%', left: '26%' } },
-    'trader_001': { id: 'trader_001', name: 'Alpha Trader', role: 'Execution', status: 'EXECUTING', task: 'Connecting to Exchange WS...', integration: 'Uniblock RPC', position: { top: '85%', left: '50%' } },
-    'dropship_001': { id: 'dropship_001', name: 'Logistics Net', role: 'Dropship', status: 'EXECUTING', task: 'Analyzing transit times...', integration: 'Ripple XRPL', position: { top: '85%', left: '74%' } }
+    'strategist': { id: 'strategist', name: 'DAO Strategy', role: 'Strategy', status: 'MONITORING', task: 'Monitoring quorum...', integration: 'LangChain', position: { top: '85%', left: '26%' } },
+    'trader_001': { id: 'trader_001', name: 'Market Intel', role: 'Market', status: 'MONITORING', task: 'Analyzing volatility...', integration: 'Chainlink Oracles', position: { top: '85%', left: '50%' } },
+    'dropship_001': { id: 'dropship_001', name: 'Treasury Ops', role: 'Treasury', status: 'MONITORING', task: 'Tracking runway...', integration: 'Gnosis Safe API', position: { top: '85%', left: '74%' } }
   });
 
   const [currentTime, setCurrentTime] = useState('');
   const [chatLogs, setChatLogs] = useState<any[]>([]);
   const [inputMessage, setInputMessage] = useState('');
+  const [aiProofs, setAiProofs] = useState<AIProof[]>([]);
   
-  // Financial Tracking State
-  const [traderPnL, setTraderPnL] = useState(0);
-  const [dropshipperRevenue, setDropshipperRevenue] = useState(0);
-  const [lastDropshipSale, setLastDropshipSale] = useState<{product: string, margin: number} | null>(null);
-  const baseCapital = 25000;
-
+  // DAO State
+  const [treasuryBalance, setTreasuryBalance] = useState(2500000);
+  const [riskScore, setRiskScore] = useState(12);
+  const [activeProposals, setActiveProposals] = useState(3);
+  const [lastGovernanceAction, setLastGovernanceAction] = useState<string>("Proposal #42 Executed");
+  
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const cryptoPricesRef = useRef<Record<string, number>>({});
+  const socketRef = useRef<Socket | null>(null);
 
   const addLog = (sender: string, text: string) => {
     setChatLogs(prev => [...prev.slice(-49), { id: Date.now() + Math.random(), sender, text }]);
@@ -58,143 +69,46 @@ export default function App() {
     return () => clearInterval(clockInterval);
   }, []);
 
-  // Real-time Binance WebSocket Integration for Alpha Trader & Finances
+  // Connect to backend websocket
   useEffect(() => {
-    addLog('SYSTEM', 'Initializing Real-Time Crypto Data Stream (Binance WS)...');
+    addLog('SYSTEM', 'Initializing Real-Time DARI DAO Orchestration...');
     
-    const ws = new WebSocket('wss://stream.binance.com:9443/ws/!ticker@arr');
-    const trackedSymbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT'];
+    const socket = io('http://localhost:5000');
+    socketRef.current = socket;
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      const relevant = data.filter((t: any) => trackedSymbols.includes(t.s));
-      
-      if (relevant.length > 0) {
-         const btcData = relevant.find((t:any) => t.s === 'BTCUSDT');
-         if (btcData) {
-            const price = parseFloat(btcData.c);
-            const prevPrice = cryptoPricesRef.current['BTCUSDT'];
-            cryptoPricesRef.current['BTCUSDT'] = price;
+    socket.on('connect', () => {
+      addLog('SYSTEM', 'Connected to Autonomous AI Engine.');
+    });
 
-            // Agent Logic: Alpha Trader actively watching BTC
-            if (prevPrice) {
-               const diff = price - prevPrice;
-               if (Math.abs(diff) > 2) { 
-                  const direction = diff > 0 ? 'PUMPING ↑' : 'DUMPING ↓';
-                  setAgents(prev => ({
-                    ...prev,
-                    'trader_001': { 
-                      ...prev['trader_001'], 
-                      task: `BTC ${direction}: $${price.toFixed(2)}`,
-                      status: 'EXECUTING' 
-                    }
-                  }));
+    socket.on('agent_update', (data: { agent_id: string; task: string; status: AgentStatus }) => {
+      setAgents(prev => ({
+        ...prev,
+        [data.agent_id]: { ...prev[data.agent_id], task: data.task, status: data.status }
+      }));
+    });
 
-                  // If major drop, buy signal with simulated profit
-                  if (diff < -5) {
-                    addLog('Alpha Trader', `🚨 REAL-TIME SIGNAL: BTC aggressively dropping to $${price.toFixed(2)}. Suggesting BUY (Buy-the-dip).`);
-                    setAgents(prev => ({ ...prev, 'strategist': { ...prev['strategist'], task: `Evaluating BTC Buy @ $${price.toFixed(0)}` }}));
-                    
-                    setTimeout(() => {
-                      const profit = parseFloat(((Math.random() * 80) + 20).toFixed(2));
-                      setTraderPnL(p => p + profit);
-                      addLog('Global Strat', `Scalp trade resolved! Fast mean reversion captured +$${profit.toFixed(2)} gain.`);
-                    }, 2500);
+    socket.on('system_log', (data: { sender: string; text: string }) => {
+      addLog(data.sender, data.text);
+    });
 
-                  } else if (diff > 5) {
-                    addLog('Alpha Trader', `🚀 REAL-TIME SIGNAL: BTC pumping to $${price.toFixed(2)}. Suggesting SELL (Taking profit).`);
-                    setAgents(prev => ({ ...prev, 'strategist': { ...prev['strategist'], task: `Evaluating BTC Sell @ $${price.toFixed(0)}` }}));
-                    
-                    setTimeout(() => {
-                      const profit = parseFloat(((Math.random() * 120) + 40).toFixed(2));
-                      setTraderPnL(p => p + profit);
-                      addLog('Global Strat', `Trend trade closed. Profit target hit realizing +$${profit.toFixed(2)} margin.`);
-                    }, 2500);
-                  }
-               }
-            } else {
-               setAgents(prev => ({ ...prev, 'trader_001': { ...prev['trader_001'], task: `Tracking BTC: $${price.toFixed(2)}` }}));
-            }
-         }
-      }
+    socket.on('dao_metrics', (data: { treasury: number; risk: number; proposals: number; last_action: string }) => {
+      if (data.treasury !== undefined) setTreasuryBalance(data.treasury);
+      if (data.risk !== undefined) setRiskScore(data.risk);
+      if (data.proposals !== undefined) setActiveProposals(data.proposals);
+      if (data.last_action !== undefined) setLastGovernanceAction(data.last_action);
+    });
+
+    socket.on('ai_proofs', (proofs: AIProof[]) => {
+      setAiProofs(proofs);
+    });
+
+    socket.on('new_proof', (proof: AIProof) => {
+      setAiProofs(prev => [proof, ...prev].slice(0, 15));
+    });
+
+    return () => {
+      socket.disconnect();
     };
-
-    ws.onerror = () => {
-      addLog('SYSTEM', 'Binance websocket connection error. Using heuristics.');
-    };
-
-    return () => ws.close();
-  }, []);
-
-  // Real-time operations for other agents
-  useEffect(() => {
-     const dropshipTasks = [
-       "Scraping CJ Dropshipping...",
-       "Analyzing AliExpress margins...",
-       "Contacting supplier: Shenzhen-Tech",
-       "Evaluating Shopify ad spend...",
-       "Checking freight forwarder availability...",
-       "Optimizing product listing SEO..."
-     ];
-
-     const intelTasks = [
-       "Scanning TikTok viral trends...",
-       "Analyzing rival dropshipping stores...",
-       "Extracting metadata from Twitter...",
-       "Verifying trademark compliance...",
-       "Generating ad copy via OpenAI..."
-     ];
-
-     const logisticsInterval = setInterval(() => {
-        const dropTask = dropshipTasks[Math.floor(Math.random() * dropshipTasks.length)];
-        setAgents(prev => ({
-          ...prev,
-          'dropship_001': { ...prev['dropship_001'], task: dropTask }
-        }));
-        
-        // Randomly simulate dropshipping conversion
-        if (Math.random() > 0.6) {
-           const saleObj = ['Smartwatch', 'LED Lights', 'Posture Corrector', 'Mini Humidifier', 'Neck Massager'][Math.floor(Math.random() * 5)];
-           const profit = parseFloat(((Math.random() * 25) + 8).toFixed(2));
-           setDropshipperRevenue(p => p + profit);
-           setLastDropshipSale({ product: saleObj, margin: profit });
-           addLog('Logistics Net', `Sale converted autonomously! Product: ${saleObj}. Net Margin: +$${profit.toFixed(2)}`);
-        } else {
-           if (Math.random() > 0.5) addLog('Logistics Net', `Operation update: ${dropTask}`);
-        }
-     }, 6000);
-
-     const intelInterval = setInterval(() => {
-        const rTask = intelTasks[Math.floor(Math.random() * intelTasks.length)];
-        setAgents(prev => ({
-          ...prev,
-          'researcher': { ...prev['researcher'], task: rTask }
-        }));
-        if(Math.random() > 0.8) {
-           addLog('Deep Web Intel', `Data retrieved: ${rTask}. Forwarding to Dropship nodes.`);
-        }
-     }, 5500);
-
-     const verifierInterval = setInterval(() => {
-        setAgents(prev => ({
-          ...prev,
-          'verifier': { ...prev['verifier'], task: 'Auditing chain integrity.', status: 'EXECUTING' },
-          'evaluator': { ...prev['evaluator'], task: 'Evaluating portfolio delta.', status: 'EXECUTING' }
-        }));
-        setTimeout(() => {
-          setAgents(prev => ({
-            ...prev,
-            'verifier': { ...prev['verifier'], task: 'Standing by...', status: 'IDLE' },
-            'evaluator': { ...prev['evaluator'], task: 'Awaiting signal...', status: 'IDLE' }
-          }));
-        }, 2000);
-     }, 8000);
-
-     return () => {
-       clearInterval(logisticsInterval);
-       clearInterval(intelInterval);
-       clearInterval(verifierInterval);
-     };
   }, []);
 
   useEffect(() => {
@@ -205,21 +119,49 @@ export default function App() {
     e.preventDefault();
     if (!inputMessage.trim()) return;
     addLog('USER', `COMMAND TRIGGERED: ${inputMessage}`);
-    setTimeout(() => addLog('SYSTEM', 'Override directive accepted. Routing to agents.'), 500);
+    if (socketRef.current) {
+        socketRef.current.emit('user_command', { command: inputMessage });
+    }
     setInputMessage('');
   };
 
   const getStatusColorCls = (status: AgentStatus) => {
     switch (status) {
+      case 'ACTIVE':
       case 'EXECUTING': return 'text-[#39ff14] border-[#39ff14] shadow-[0_0_10px_rgba(57,255,20,0.5)]';
-      case 'NEEDS_HELP': return 'text-[#ffcc00] border-[#ffcc00] shadow-[0_0_10px_rgba(255,204,0,0.5)]';
-      case 'BLOCKED': return 'text-[#ff003c] border-[#ff003c] shadow-[0_0_10px_rgba(255,0,60,0.5)]';
-      default: return 'text-[#00f3ff] border-[#00f3ff] shadow-[0_0_10px_rgba(0,243,255,0.5)]';
+      case 'ANALYZING': return 'text-[#ffcc00] border-[#ffcc00] shadow-[0_0_10px_rgba(255,204,0,0.5)]';
+      case 'MONITORING': return 'text-[#00f3ff] border-[#00f3ff] shadow-[0_0_10px_rgba(0,243,255,0.5)]';
+      case 'COMMUNICATING': return 'text-[#b539ff] border-[#b539ff] shadow-[0_0_10px_rgba(181,57,255,0.5)]';
+      case 'ALERT': return 'text-[#ff003c] border-[#ff003c] shadow-[0_0_10px_rgba(255,0,60,0.5)]';
+      case 'IDLE': return 'text-gray-400 border-gray-600 shadow-[0_0_10px_rgba(156,163,175,0.3)]';
+      default: return 'text-gray-400 border-gray-600 shadow-none';
     }
   };
 
-  const totalEarned = traderPnL + dropshipperRevenue;
-  const currentTreasury = baseCapital + totalEarned;
+  const getStatusIcon = (status: AgentStatus) => {
+    switch (status) {
+      case 'ACTIVE':
+      case 'EXECUTING': return '🟢';
+      case 'ANALYZING': return '🟡';
+      case 'MONITORING': return '🔵';
+      case 'COMMUNICATING': return '🟣';
+      case 'ALERT': return '🔴';
+      case 'IDLE': return '⚪';
+      default: return '⚪';
+    }
+  };
+
+  const getGlowColor = (status: AgentStatus) => {
+    switch (status) {
+      case 'ACTIVE':
+      case 'EXECUTING': return '#39ff14';
+      case 'ANALYZING': return '#ffcc00';
+      case 'MONITORING': return '#00f3ff';
+      case 'COMMUNICATING': return '#b539ff';
+      case 'ALERT': return '#ff003c';
+      default: return '#4b5563';
+    }
+  };
 
   return (
     <div className="h-screen w-full bg-[#05080a] text-white font-sans antialiased overflow-hidden flex p-4 lg:p-6 gap-6 justify-center items-center relative">
@@ -241,55 +183,62 @@ export default function App() {
 
         <div className="absolute inset-0 bg-[linear-gradient(rgba(0,0,0,0.1)_50%,rgba(0,0,0,0.2)_50%)] bg-[size:100%_4px] pointer-events-none mix-blend-overlay"></div>
 
-        {Object.values(agents).map(agent => (
-          <div 
-            key={agent.id}
-            className="absolute flex flex-col items-center z-20"
-            style={{ left: agent.position.left, top: agent.position.top, transform: 'translate(-50%, -100%)' }}
-          >
-            <AnimatePresence>
-              {agent.status === 'EXECUTING' && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="mb-8 bg-black/90 backdrop-blur-sm border-2 rounded p-2 z-30 min-w-[124px] max-w-[150px] text-center"
-                  style={{ borderColor: getStatusColorCls(agent.status).split(' ')[1].replace('border-[', '').replace(']', '') }}
-                >
-                  <p className={`text-[10px] font-mono font-bold leading-tight ${getStatusColorCls(agent.status).split(' ')[0]}`}>
-                    {agent.task}
-                  </p>
-                  <div 
-                    className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-t-[8px] border-l-transparent border-l-[8px] border-r-transparent border-r-[8px]"
-                    style={{ borderTopColor: getStatusColorCls(agent.status).split(' ')[1].replace('border-[', '').replace(']', '') }}
-                  ></div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+        {Object.values(agents).map(agent => {
+          const glowHex = getGlowColor(agent.status);
+          const isWorking = agent.status !== 'IDLE';
 
-            <div className="relative flex flex-col items-center">
-               {agent.status === 'EXECUTING' && (
-                 <div className="absolute -top-4 w-2 h-2 rounded-full bg-[#39ff14] animate-ping shadow-[0_0_10px_#39ff14]"></div>
-               )}
-               <div className="w-8 h-8 bg-[#ffcc99] rounded-sm relative shadow-md overflow-hidden">
-                 <div className="absolute inset-x-0 bottom-1/4 h-2 bg-black/10"></div>
-                 <div className={`absolute top-2 inset-x-1 h-3 rounded-[2px] ${agent.status === 'EXECUTING' ? 'bg-[#00f3ff] shadow-[0_0_5px_#00f3ff]' : 'bg-gray-800'}`}></div>
-               </div>
-               <div className={`w-12 h-8 rounded-t-sm -mt-1 shadow-lg ${agent.status === 'EXECUTING' ? 'bg-[#00f3ff]' : 'bg-[#3b82f6]'}`}>
-                 <div className="w-2 h-6 bg-white mx-auto absolute left-1/2 -translate-x-1/2 mt-1 rounded-b flex flex-col items-center pt-[1px]">
-                   <div className={`w-1 h-1 rounded-full ${agent.status === 'EXECUTING' ? 'bg-[#39ff14]' : 'bg-red-500'}`}></div>
-                 </div>
-               </div>
-            </div>
+          return (
+            <div 
+              key={agent.id}
+              className="absolute flex flex-col items-center z-20"
+              style={{ left: agent.position.left, top: agent.position.top, transform: 'translate(-50%, -100%)' }}
+            >
+              <AnimatePresence>
+                {isWorking && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="mb-8 bg-black/90 backdrop-blur-sm border-2 rounded p-2 z-30 min-w-[124px] max-w-[150px] text-center transition-colors"
+                    style={{ borderColor: glowHex }}
+                  >
+                    <p className={`text-[10px] font-mono font-bold leading-tight ${getStatusColorCls(agent.status).split(' ')[0]}`}>
+                      {agent.task}
+                    </p>
+                    <div 
+                      className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-t-[8px] border-l-transparent border-l-[8px] border-r-transparent border-r-[8px] transition-colors"
+                      style={{ borderTopColor: glowHex }}
+                    ></div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-            <div className={`mt-1 bg-black/80 px-2 py-0.5 border-b-2 font-mono text-[9px] font-bold rounded shadow-lg uppercase flex flex-col items-center ${getStatusColorCls(agent.status).split(' ')[0]} ${getStatusColorCls(agent.status).split(' ')[1]}`}>
-              <span>{agent.name}</span>
-              <span className="text-[7px] text-gray-400 mt-[2px] pt-[2px] border-t border-gray-700/50 w-full text-center truncate tracking-wide">
-                TOOL: {agent.integration}
-              </span>
+              <div className="relative flex flex-col items-center">
+                {isWorking && (
+                  <div className="absolute -top-4 w-2 h-2 rounded-full animate-ping" style={{ backgroundColor: glowHex, boxShadow: `0 0 10px ${glowHex}` }}></div>
+                )}
+                <div className="w-8 h-8 bg-[#ffcc99] rounded-sm relative shadow-md overflow-hidden">
+                  <div className="absolute inset-x-0 bottom-1/4 h-2 bg-black/10"></div>
+                  <div className="absolute top-2 inset-x-1 h-3 rounded-[2px] transition-colors" style={{ backgroundColor: isWorking ? glowHex : '#1f2937', boxShadow: isWorking ? `0 0 5px ${glowHex}` : 'none' }}></div>
+                </div>
+                <div className="w-12 h-8 rounded-t-sm -mt-1 shadow-lg transition-colors" style={{ backgroundColor: isWorking ? glowHex : '#3b82f6' }}>
+                  <div className="w-2 h-6 bg-white mx-auto absolute left-1/2 -translate-x-1/2 mt-1 rounded-b flex flex-col items-center pt-[1px]">
+                    <div className="w-1 h-1 rounded-full transition-colors" style={{ backgroundColor: isWorking ? '#39ff14' : '#ef4444' }}></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className={`mt-1 bg-black/80 px-2 py-0.5 border-b-2 font-mono text-[9px] font-bold rounded shadow-lg uppercase flex flex-col items-center ${getStatusColorCls(agent.status).split(' ')[0]} ${getStatusColorCls(agent.status).split(' ')[1]}`}>
+                <span className="flex items-center gap-1">
+                  <span className="text-[10px]">{getStatusIcon(agent.status)}</span> {agent.name}
+                </span>
+                <span className="text-[7px] text-gray-400 mt-[2px] pt-[2px] border-t border-gray-700/50 w-full text-center truncate tracking-wide">
+                  TOOL: {agent.integration}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* RIGHT: Side Panel Chat & Financials */}
@@ -299,72 +248,95 @@ export default function App() {
         <div className="px-4 py-3 border-b border-[#00f3ff]/20 bg-[#00f3ff]/10 flex justify-between items-center">
            <div className="flex items-center gap-2">
              <Terminal className="text-[#00f3ff] w-4 h-4" />
-             <h2 className="text-[#00f3ff] text-xs font-bold font-mono tracking-widest uppercase">System Log</h2>
+             <h2 className="text-[#00f3ff] text-xs font-bold font-mono tracking-widest uppercase">Governance Core</h2>
            </div>
            <div className="flex items-center gap-3">
-             <span className="text-[9px] text-[#39ff14] font-mono font-bold animate-pulse">● LIVE WS ACTIVE</span>
+             <span className="text-[9px] text-[#39ff14] font-mono font-bold animate-pulse">● LIVE DAO NETWORK</span>
            </div>
         </div>
 
-        {/* FINANCIAL DASHBOARD */}
+        {/* DAO DASHBOARD */}
         <div className="p-4 border-b border-[#00f3ff]/20 bg-black/80">
           <h3 className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3 flex items-center gap-1">
-             <DollarSign className="w-3 h-3 text-[#39ff14]" /> Syndicate Treasury 
+             <Activity className="w-3 h-3 text-[#39ff14]" /> DARI DAO Intelligence
           </h3>
           
           <div className="flex justify-between items-end mb-4">
              <div>
-               <p className="text-[10px] text-slate-400 font-mono">Live Capital:</p>
+               <p className="text-[10px] text-slate-400 font-mono">Treasury Health:</p>
                <h1 className="text-2xl font-bold text-[#39ff14] font-mono">
-                 ${currentTreasury.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                 ${treasuryBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                </h1>
              </div>
              <div className="text-right">
-               <p className="text-[10px] text-slate-400 font-mono">Session Profit:</p>
-               <h2 className={`text-lg font-bold font-mono ${totalEarned > 0 ? 'text-[#00f3ff]' : 'text-gray-500'}`}>
-                 +${totalEarned.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+               <p className="text-[10px] text-slate-400 font-mono">Network Security Risk:</p>
+               <h2 className={`text-lg font-bold font-mono ${riskScore < 20 ? 'text-[#39ff14]' : riskScore < 50 ? 'text-[#ffcc00]' : 'text-[#ff003c]'}`}>
+                 {riskScore}%
                </h2>
              </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-             {/* Alpha Trader Stat */}
+             {/* Proposals Stat */}
              <div className="bg-[#030a0d] border border-[#00f3ff]/30 rounded p-2 flex flex-col justify-between">
                <div className="flex justify-between items-center mb-1">
-                 <span className="text-[9px] text-[#ffcc00] font-bold uppercase">Alpha Trader</span>
+                 <span className="text-[9px] text-[#00f3ff] font-bold uppercase">Active Proposals</span>
                </div>
                <p className="text-white font-mono text-sm border-t border-white/5 pt-1 mt-auto">
-                 +${traderPnL.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                 {activeProposals} Analyzing
                </p>
-               <p className="text-[8px] text-gray-500 mt-1 uppercase">Total Scalped Margin</p>
              </div>
              
-             {/* Logistics Net Stat */}
+             {/* Governance Action Stat */}
              <div className="bg-[#030a0d] border border-[#00f3ff]/30 rounded p-2 flex flex-col justify-between">
                <div className="flex justify-between items-center mb-1">
-                 <span className="text-[9px] text-orange-400 font-bold uppercase">Logistics Net</span>
+                 <span className="text-[9px] text-orange-400 font-bold uppercase">Last Governance Event</span>
                </div>
-               <p className="text-white font-mono text-sm border-t border-white/5 pt-1">
-                 +${dropshipperRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+               <p className="text-white font-mono text-sm border-t border-white/5 pt-1 text-[10px] truncate">
+                 {lastGovernanceAction}
                </p>
-               <div className="mt-1 flex flex-col gap-0.5 text-[8px] uppercase">
-                 <span className="text-gray-500">Last Sale Margin:</span>
-                 {lastDropshipSale ? (
-                   <span className="text-[#39ff14]">
-                     {lastDropshipSale.product} <b className="text-white ml-2">+${lastDropshipSale.margin.toFixed(2)}</b>
-                   </span>
-                 ) : (
-                   <span className="text-gray-700">Awaiting Conversion...</span>
-                 )}
-               </div>
              </div>
           </div>
         </div>
 
+        {/* AI TASK PROOF PANEL */}
+        <div className="p-3 border-b border-[#00f3ff]/20 bg-[#081214]">
+           <h3 className="text-[10px] text-[#00f3ff] font-bold uppercase tracking-widest mb-2 flex items-center gap-1">
+             <ShieldAlert className="w-3 h-3" /> AI TASK PROOF
+           </h3>
+           <div className="flex flex-col gap-2 overflow-y-auto max-h-[110px] custom-scrollbar pr-1">
+             <AnimatePresence>
+               {aiProofs.map(proof => (
+                 <motion.div 
+                   key={proof.id} 
+                   initial={{ opacity: 0, x: -10 }} 
+                   animate={{ opacity: 1, x: 0 }}
+                   className="bg-black/60 border border-[#00f3ff]/30 p-2 rounded flex flex-col gap-1 text-[9px] font-mono shadow-[0_0_10px_rgba(0,243,255,0.1)]"
+                 >
+                   <div className="flex justify-between items-center text-gray-400">
+                     <span>[{proof.time}] <b className="text-white">{proof.agent}</b></span>
+                     <span className={`flex items-center gap-1 ${proof.status === 'COMPLETED' || proof.status === 'SUCCESS' ? 'text-[#39ff14]' : 'text-[#ffcc00]'}`}>
+                       {(proof.status === 'COMPLETED' || proof.status === 'SUCCESS') && <CheckCircle className="w-2.5 h-2.5" />}
+                       {proof.status}
+                     </span>
+                   </div>
+                   <div className="text-gray-300">Task: {proof.task}</div>
+                   <div className="text-[#00f3ff]/80 flex justify-between">
+                     <span>Tx Ref: {proof.tx_hash}</span>
+                   </div>
+                 </motion.div>
+               ))}
+               {aiProofs.length === 0 && (
+                 <div className="text-gray-500 text-[10px] italic text-center py-2 font-mono">Awaiting AI Task Proofs...</div>
+               )}
+             </AnimatePresence>
+           </div>
+        </div>
+
         {/* LOG TERMINAL */}
-        <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3 font-mono text-[11px] custom-scrollbar bg-black/60">
+        <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-3 font-mono text-[11px] custom-scrollbar bg-black/60">
           {chatLogs.map(log => {
-             const isTrade = log.sender === 'Alpha Trader' || log.sender === 'Global Strat';
+             const isTrade = log.sender.includes('Agent') || log.sender.includes('Intel') || log.sender.includes('Strategy') || log.sender.includes('Ops') || log.sender.includes('Proposal') || log.sender.includes('Val.');
              const isSystem = log.sender === 'SYSTEM';
              return (
               <motion.div initial={{opacity:0, x:-5}} animate={{opacity:1, x:0}} key={log.id} className="flex flex-col gap-1 w-full bg-white/5 p-2 rounded border border-white/5 pb-2">
@@ -388,11 +360,11 @@ export default function App() {
               type="text" 
               value={inputMessage}
               onChange={e => setInputMessage(e.target.value)}
-              placeholder="Enter manual override command..."
+              placeholder="e.g. /create proposal, /check treasury..."
               className="w-full bg-[#030a0d] text-[#00f3ff] border border-[#00f3ff]/40 rounded px-3 py-2 outline-none focus:border-[#00f3ff] shadow-inner text-xs font-mono transition-colors"
             />
             <button type="submit" className="w-full py-2 bg-[#00f3ff]/10 hover:bg-[#00f3ff]/20 border border-[#00f3ff] text-[#00f3ff] rounded flex items-center justify-center gap-2 font-bold font-mono text-xs uppercase transition-colors">
-              Override Directive <Send className="w-3 h-3" />
+              Execute DAO Command <Send className="w-3 h-3" />
             </button>
           </form>
         </div>
