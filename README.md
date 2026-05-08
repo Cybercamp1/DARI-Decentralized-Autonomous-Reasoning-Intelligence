@@ -32,6 +32,15 @@ Unlike traditional governance dashboards that rely on static data or simulated l
 - **Persistence**: JSON-based File Memory (Pure JS, no native deps)
 - **Blockchain**: ethers.js (Real-time Monitoring & Event Simulation)
 
+## Demo video 
+
+
+
+
+https://github.com/user-attachments/assets/6c563fb6-f961-4e30-929b-818d2e05bea1
+
+
+
 ---
 
 ## 🛠️ Installation & Setup
