@@ -3,6 +3,9 @@
 **DARI** is a Next-Generation Autonomous AI Governance Intelligence System. It transforms traditional DAO governance into a real-time, event-driven autonomous civilization where AI agents independently monitor, analyze, and coordinate governance actions.
 
 ---
+## vercel link of project :
+dari-decentralized-autonomous-reaso-green.vercel.app
+
 
 ## ⚡ Real-Time Event-Driven Engine
 
