@@ -85,6 +85,10 @@ export default function App() {
       addLog('SYSTEM', 'Connected to Autonomous AI Engine.');
     });
 
+    socket.on('connect_error', () => {
+      addLog('SYSTEM', `ERROR: Cannot connect to backend at ${backendUrl}. Ensure backend is running and VITE_BACKEND_URL is set.`);
+    });
+
     socket.on('agent_update', (data: { agent_id: string; task: string; status: AgentStatus }) => {
       setAgents(prev => ({
         ...prev,
