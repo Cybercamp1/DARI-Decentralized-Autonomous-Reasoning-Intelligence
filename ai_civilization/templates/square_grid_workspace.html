@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏢 AI Agent Grid Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            overflow: hidden;
+        }
+        
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 2px;
+            width: 100%;
+            height: 100vh;
+            padding: 20px;
+            background: #0f172a;
+        }
+        
+        .work-square {
+            background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+            border: 2px solid #1f2937;
+            border-radius: 8px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .work-square:hover {
+            border-color: #8b5cf6;
+            box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+        }
+        
+        .work-square.occupied {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-color: #047857;
+        }
+        
+        .work-square.trading {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            border-color: #15803d;
+        }
+        
+        .work-square.shipping {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border-color: #1d4ed8;
+        }
+        
+        .work-square.management {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            border-color: #b91c1c;
+        }
+        
+        .work-square.meeting {
+            background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+            border-color: #7c3aed;
+        }
+        
+        .agent {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+            position: relative;
+        }
+        
+        .agent-trader {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: 3px solid #047857;
+        }
+        
+        .agent-shipper {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border: 3px solid #1d4ed8;
+        }
+        
+        .agent-manager {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border: 3px solid #b91c1c;
+        }
+        
+        .agent:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+        
+        .agent.working {
+            animation: working 2s infinite;
+        }
+        
+        @keyframes working {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .status-indicator {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #10b981;
+            border: 2px solid white;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.busy {
+            background: #f59e0b;
+        }
+        
+        .status-indicator.offline {
+            background: #6b7280;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.8; }
+        }
+        
+        .work-label {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            font-size: 10px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.8);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .activity-indicator {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 500;
+        }
+        
+        .thought-bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            color: #1f2937;
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+            z-index: 20;
+            animation: fadeInOut 3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .thought-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 4px solid rgba(255, 255, 255, 0.95);
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateX(-50%) translateY(-5px); }
+            20% { opacity: 1; transform: translateX(-50%) translateY(0px); }
+            80% { opacity: 1; transform: translateX(-50%) translateY(0px); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-5px); }
+        }
+        
+        .control-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: 1000;
+            min-width: 200px;
+        }
+        
+        .status-panel {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            z-index: 1000;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #22c55e);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="grid-container" id="gridContainer">
+        <!-- Grid squares will be generated here -->
+    </div>
+    
+    <!-- Status Panel -->
+    <div class="status-panel">
+        <h3 class="text-white font-bold mb-3">🏢 Grid Status</h3>
+        <div class="space-y-2 text-sm">
+            <div class="flex justify-between text-gray-300">
+                <span>Total Squares:</span>
+                <span id="totalSquares" class="text-blue-400 font-bold">24</span>
+            </div>
+            <div class="flex justify-between text-gray-300">
+                <span>Occupied:</span>
+                <span id="occupiedSquares" class="text-green-400 font-bold">0</span>
+            </div>
+            <div class="flex justify-between text-gray-300">
+                <span>Active Agents:</span>
+                <span id="activeAgents" class="text-purple-400 font-bold">0</span>
+            </div>
+            <div class="flex justify-between text-gray-300">
+                <span>Status:</span>
+                <span id="gridStatus" class="text-green-400 font-bold">Active</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Control Panel -->
+    <div class="control-panel">
+        <h3 class="text-white font-bold mb-4">🎮 Grid Controls</h3>
+        <div class="space-y-3">
+            <button onclick="startGrid()" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                ▶️ Start Grid
+            </button>
+            <button onclick="pauseGrid()" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                ⏸️ Pause Grid
+            </button>
+            <button onclick="addRandomAgent()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                ➕ Add Agent
+            </button>
+            <button onclick="clearGrid()" class="w-full bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                🗑️ Clear Grid
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        let gridSquares = [];
+        let agents = {};
+        let isRunning = false;
+        let agentIdCounter = 1;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeGrid();
+            startGridAnimation();
+        });
+
+        // Socket.IO events
+        socket.on('connect', () => {
+            console.log('Connected to grid workspace');
+        });
+
+        socket.on('agent_update', (data) => {
+            updateAgentInGrid(data);
+        });
+
+        // Initialize grid
+        function initializeGrid() {
+            const container = document.getElementById('gridContainer');
+            container.innerHTML = '';
+            
+            for (let row = 0; row < 4; row++) {
+                for (let col = 0; col < 6; col++) {
+                    const square = document.createElement('div');
+                    square.className = 'work-square';
+                    square.id = `square-${row}-${col}`;
+                    square.onclick = () => selectSquare(row, col);
+                    
+                    square.innerHTML = `
+                        <div class="work-label">Empty</div>
+                    `;
+                    
+                    container.appendChild(square);
+                    
+                    gridSquares.push({
+                        id: `square-${row}-${col}`,
+                        row: row,
+                        col: col,
+                        element: square,
+                        occupied: false,
+                        agent: null,
+                        type: 'empty'
+                    });
+                }
+            }
+            
+            updateStatus();
+        }
+
+        function selectSquare(row, col) {
+            const square = gridSquares.find(s => s.row === row && s.col === col);
+            if (square && square.agent) {
+                showAgentThought(square.agent.id, `Working at ${row},${col}`);
+                highlightSquare(square.id);
+            }
+        }
+
+        function highlightSquare(squareId) {
+            const square = document.getElementById(squareId);
+            if (square) {
+                square.style.transform = 'scale(1.05)';
+                square.style.boxShadow = '0 0 30px rgba(139, 92, 246, 0.5)';
+                setTimeout(() => {
+                    square.style.transform = 'scale(1)';
+                    square.style.boxShadow = '';
+                }, 500);
+            }
+        }
+
+        // Agent management
+        function createAgentInGrid(type, emoji, name) {
+            // Find empty square
+            const emptySquare = gridSquares.find(s => !s.occupied);
+            if (!emptySquare) return null;
+            
+            const agent = document.createElement('div');
+            agent.className = `agent agent-${type} working`;
+            agent.id = `agent-${agentIdCounter}`;
+            agent.textContent = emoji;
+            agent.onclick = (e) => {
+                e.stopPropagation();
+                selectAgent(agentIdCounter);
+            };
+            
+            emptySquare.element.appendChild(agent);
+            emptySquare.occupied = true;
+            emptySquare.agent = {
+                id: agentIdCounter,
+                element: agent,
+                type: type,
+                name: name,
+                square: emptySquare
+            };
+            
+            // Update square type
+            emptySquare.element.className = `work-square ${type}`;
+            emptySquare.type = type;
+            
+            // Update square label
+            const label = emptySquare.element.querySelector('.work-label');
+            if (label) {
+                label.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+            }
+            
+            // Add status indicator
+            const statusIndicator = document.createElement('div');
+            statusIndicator.className = 'status-indicator';
+            emptySquare.element.appendChild(statusIndicator);
+            
+            // Add activity indicator
+            const activityIndicator = document.createElement('div');
+            activityIndicator.className = 'activity-indicator';
+            activityIndicator.textContent = 'Working...';
+            emptySquare.element.appendChild(activityIndicator);
+            
+            agents[agentIdCounter] = emptySquare.agent;
+            agentIdCounter++;
+            
+            updateStatus();
+            
+            // Show initial thought
+            setTimeout(() => {
+                showAgentThought(agentIdCounter - 1, `Started ${type} work`);
+            }, 500);
+            
+            return agentIdCounter - 1;
+        }
+
+        function selectAgent(agentId) {
+            const agent = agents[agentId];
+            if (agent) {
+                showAgentThought(agentId, `Hi! I'm ${agent.name}`);
+                highlightSquare(agent.square.id);
+            }
+        }
+
+        function showAgentThought(agentId, message) {
+            const agent = agents[agentId];
+            if (!agent) return;
+            
+            // Remove existing bubble
+            const existingBubble = agent.element.querySelector('.thought-bubble');
+            if (existingBubble) {
+                existingBubble.remove();
+            }
+            
+            // Create new bubble
+            const bubble = document.createElement('div');
+            bubble.className = 'thought-bubble';
+            bubble.textContent = message;
+            
+            agent.element.appendChild(bubble);
+            
+            // Remove after animation
+            setTimeout(() => {
+                if (bubble.parentNode) {
+                    bubble.remove();
+                }
+            }, 3000);
+        }
+
+        function updateAgentInGrid(data) {
+            if (data.agent_id && agents[data.agent_id]) {
+                const agent = agents[data.agent_id];
+                showAgentThought(data.agent_id, data.message || 'Working...');
+                
+                // Update status indicator
+                const statusIndicator = agent.square.element.querySelector('.status-indicator');
+                if (statusIndicator) {
+                    statusIndicator.className = `status-indicator ${data.status || 'busy'}`;
+                }
+                
+                // Update activity
+                const activityIndicator = agent.square.element.querySelector('.activity-indicator');
+                if (activityIndicator) {
+                    activityIndicator.textContent = data.activity || 'Working...';
+                }
+            }
+        }
+
+        // Grid animation
+        function startGridAnimation() {
+            if (!isRunning) return;
+            
+            // Random agent activities
+            Object.keys(agents).forEach(agentId => {
+                const agent = agents[agentId];
+                if (agent && Math.random() > 0.7) {
+                    const messages = {
+                        trader: ['Analyzing...', 'Trading...', 'Monitoring...'],
+                        shipper: ['Processing...', 'Shipping...', 'Tracking...'],
+                        manager: ['Managing...', 'Planning...', 'Coordinating...']
+                    };
+                    
+                    const agentMessages = messages[agent.type] || ['Working...'];
+                    const message = agentMessages[Math.floor(Math.random() * agentMessages.length)];
+                    
+                    showAgentThought(agentId, message);
+                    
+                    // Update activity
+                    const activityIndicator = agent.square.element.querySelector('.activity-indicator');
+                    if (activityIndicator) {
+                        activityIndicator.textContent = message;
+                    }
+                }
+            });
+            
+            // Continue animation loop
+            setTimeout(() => {
+                if (isRunning) {
+                    startGridAnimation();
+                }
+            }, 3000);
+        }
+
+        // Control functions
+        function startGrid() {
+            isRunning = true;
+            startGridAnimation();
+            document.getElementById('gridStatus').textContent = 'Active';
+            document.getElementById('gridStatus').className = 'text-green-400 font-bold';
+            
+            // Add initial agents
+            if (Object.keys(agents).length === 0) {
+                createAgentInGrid('trading', '📈', 'Alpha Trader');
+                createAgentInGrid('shipping', '📦', 'Logistics Master');
+                createAgentInGrid('management', '👔', 'Operations Manager');
+                createAgentInGrid('trading', '💹', 'Beta Trader');
+                createAgentInGrid('shipping', '🚚', 'Shipping Expert');
+            }
+        }
+
+        function pauseGrid() {
+            isRunning = false;
+            document.getElementById('gridStatus').textContent = 'Paused';
+            document.getElementById('gridStatus').className = 'text-yellow-400 font-bold';
+        }
+
+        function addRandomAgent() {
+            const types = ['trading', 'shipping', 'management', 'meeting'];
+            const emojis = ['📈', '📦', '👔', '🤝'];
+            const names = ['Trader', 'Shipper', 'Manager', 'Meeting Lead'];
+            
+            const randomIndex = Math.floor(Math.random() * types.length);
+            createAgentInGrid(types[randomIndex], emojis[randomIndex], names[randomIndex]);
+        }
+
+        function clearGrid() {
+            // Remove all agents
+            Object.keys(agents).forEach(agentId => {
+                const agent = agents[agentId];
+                if (agent && agent.element) {
+                    agent.element.remove();
+                }
+            });
+            
+            agents = {};
+            
+            // Reset grid
+            gridSquares.forEach(square => {
+                square.occupied = false;
+                square.agent = null;
+                square.type = 'empty';
+                square.element.className = 'work-square';
+                
+                // Reset to original content
+                square.element.innerHTML = '<div class="work-label">Empty</div>';
+            });
+            
+            updateStatus();
+        }
+
+        // Update status
+        function updateStatus() {
+            const occupiedCount = gridSquares.filter(s => s.occupied).length;
+            document.getElementById('occupiedSquares').textContent = occupiedCount;
+            document.getElementById('activeAgents').textContent = Object.keys(agents).length;
+        }
+
+        // Auto-start
+        setTimeout(() => {
+            startGrid();
+        }, 1000);
+    </script>
+</body>
+</html>

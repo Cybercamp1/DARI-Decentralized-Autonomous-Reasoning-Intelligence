@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 AI Civilization - Real-Time Business Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .chat-container {
+            height: 500px;
+            overflow-y: auto;
+        }
+        
+        .message-bubble {
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .agent-status {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .metric-card {
+            transition: all 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .signal-badge {
+            animation: signalPulse 1s infinite;
+        }
+        
+        @keyframes signalPulse {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white">
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-blue-900 via-purple-900 to-pink-900 border-b border-purple-700 p-4 shadow-lg">
+            <div class="max-w-7xl mx-auto flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <h1 class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">🤖 AI Business Dashboard</h1>
+                    <div class="text-sm text-purple-300 font-medium">Real-Time Operations</div>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <div class="text-sm bg-gray-800 px-3 py-2 rounded-lg border border-gray-600">
+                        <span class="text-gray-400">System:</span>
+                        <span id="systemStatus" class="font-mono text-green-400 font-bold">ONLINE</span>
+                    </div>
+                    <div class="text-sm bg-gray-800 px-3 py-2 rounded-lg border border-gray-600">
+                        <span class="text-gray-400">Agents:</span>
+                        <span id="agentCount" class="font-mono text-blue-400 font-bold">0</span>
+                    </div>
+                    <div class="text-sm bg-gray-800 px-3 py-2 rounded-lg border border-gray-600">
+                        <span class="text-gray-400">Tasks:</span>
+                        <span id="taskCount" class="font-mono text-purple-400 font-bold">0</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-4">
+            <div class="max-w-7xl mx-auto">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Left Column - Chat & Agents -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <!-- Active Agents -->
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-2xl border border-gray-700">
+                            <h3 class="text-xl font-bold mb-4 bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">🤖 Active Agents</h3>
+                            <div id="agentsList" class="space-y-3">
+                                <!-- Agents will be populated here -->
+                            </div>
+                        </div>
+
+                        <!-- Chat Interface -->
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-2xl border border-gray-700">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">💬 Agent Chat</h3>
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2 h-2 bg-green-400 rounded-full agent-status"></div>
+                                    <span class="text-xs text-gray-400">Live</span>
+                                </div>
+                            </div>
+                            
+                            <div id="chatMessages" class="chat-container bg-gray-700 rounded-lg p-4 mb-4 space-y-3">
+                                <!-- Messages will appear here -->
+                            </div>
+                            
+                            <div class="flex space-x-2">
+                                <input type="text" id="chatInput" placeholder="Type command or message..." 
+                                    class="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-purple-500">
+                                <button onclick="sendMessage()" class="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200">
+                                    Send
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Center Column - Trading & Business Operations -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <!-- Trading Signals -->
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-2xl border border-gray-700">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent">📈 Trading Signals</h3>
+                                <button onclick="requestTradingUpdate()" class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-xs">
+                                    Update
+                                </button>
+                            </div>
+                            <div id="tradingSignals" class="space-y-3">
+                                <!-- Trading signals will appear here -->
+                            </div>
+                        </div>
+
+                        <!-- Dropshipping Operations -->
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-2xl border border-gray-700">
+                            <div class="flex items-center justify-between mb-4">
+                                <h3 class="text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent">📦 Dropshipping</h3>
+                                <button onclick="requestDropshippingUpdate()" class="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-xs">
+                                    Update
+                                </button>
+                            </div>
+                            <div id="dropshippingOps" class="space-y-3">
+                                <!-- Dropshipping operations will appear here -->
+                            </div>
+                        </div>
+
+                        <!-- Active Tasks -->
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-2xl border border-gray-700">
+                            <h3 class="text-xl font-bold mb-4 bg-gradient-to-r from-orange-400 to-red-500 bg-clip-text text-transparent">🎯 Active Tasks</h3>
+                            <div id="activeTasks" class="space-y-3">
+                                <!-- Tasks will appear here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column - Analytics & Performance -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <!-- Performance Metrics -->
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-2xl border border-gray-700">
+                            <h3 class="text-xl font-bold mb-4 bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent">📊 Performance</h3>
+                            <div class="space-y-4">
+                                <div class="metric-card bg-gray-700 p-4 rounded-lg">
+                                    <div class="text-sm text-gray-400">Total Revenue</div>
+                                    <div id="totalRevenue" class="text-2xl font-bold text-green-400">$0</div>
+                                </div>
+                                <div class="metric-card bg-gray-700 p-4 rounded-lg">
+                                    <div class="text-sm text-gray-400">Trading P&L</div>
+                                    <div id="tradingPNL" class="text-2xl font-bold text-blue-400">$0</div>
+                                </div>
+                                <div class="metric-card bg-gray-700 p-4 rounded-lg">
+                                    <div class="text-sm text-gray-400">Orders Completed</div>
+                                    <div id="ordersCompleted" class="text-2xl font-bold text-purple-400">0</div>
+                                </div>
+                                <div class="metric-card bg-gray-700 p-4 rounded-lg">
+                                    <div class="text-sm text-gray-400">Success Rate</div>
+                                    <div id="successRate" class="text-2xl font-bold text-yellow-400">0%</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Real-Time Charts -->
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-2xl border border-gray-700">
+                            <h3 class="text-xl font-bold mb-4 bg-gradient-to-r from-indigo-400 to-purple-500 bg-clip-text text-transparent">📈 Analytics</h3>
+                            <canvas id="performanceChart" width="200" height="200"></canvas>
+                        </div>
+
+                        <!-- Help Requests -->
+                        <div class="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl p-6 shadow-2xl border border-gray-700">
+                            <h3 class="text-xl font-bold mb-4 bg-gradient-to-r from-red-400 to-pink-500 bg-clip-text text-transparent">🆘 Help Requests</h3>
+                            <div id="helpRequests" class="space-y-3">
+                                <!-- Help requests will appear here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        let agents = {};
+        let messages = [];
+        let tasks = {};
+        let performanceChart = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeChart();
+            socket.emit('get_system_status');
+            requestUpdates();
+        });
+
+        // Socket.IO event handlers
+        socket.on('connect', () => {
+            console.log('Connected to AI Business Dashboard');
+            addSystemMessage('Connected to AI Business Network', 'success');
+        });
+
+        socket.on('agent_message', (data) => {
+            addChatMessage(data);
+        });
+
+        socket.on('agent_status', (data) => {
+            updateAgentStatus(data);
+        });
+
+        socket.on('trading_signal', (data) => {
+            addTradingSignal(data);
+        });
+
+        socket.on('dropshipping_update', (data) => {
+            updateDropshippingOps(data);
+        });
+
+        socket.on('task_update', (data) => {
+            updateTask(data);
+        });
+
+        socket.on('help_request', (data) => {
+            addHelpRequest(data);
+        });
+
+        socket.on('performance_update', (data) => {
+            updatePerformanceMetrics(data);
+        });
+
+        // Chat functions
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                // Send to server
+                socket.emit('user_message', {
+                    content: message,
+                    timestamp: new Date().toISOString()
+                });
+                
+                // Add to chat
+                addChatMessage({
+                    sender: 'user',
+                    content: message,
+                    timestamp: new Date().toISOString(),
+                    type: 'user_command'
+                });
+                
+                input.value = '';
+            }
+        }
+
+        function addChatMessage(data) {
+            const container = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            
+            const isUser = data.sender === 'user';
+            const isSystem = data.sender === 'system';
+            
+            let bgColor = 'bg-gray-600';
+            if (isUser) bgColor = 'bg-blue-600';
+            if (isSystem) bgColor = 'bg-purple-600';
+            
+            messageDiv.className = `message-bubble ${bgColor} rounded-lg p-3 ${isUser ? 'ml-auto max-w-xs' : 'mr-auto max-w-xs'}`;
+            
+            messageDiv.innerHTML = `
+                <div class="text-xs font-semibold mb-1">${data.sender}</div>
+                <div class="text-sm">${data.content}</div>
+                <div class="text-xs opacity-70 mt-1">${new Date(data.timestamp).toLocaleTimeString()}</div>
+            `;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function addSystemMessage(content, type = 'info') {
+            addChatMessage({
+                sender: 'system',
+                content: content,
+                timestamp: new Date().toISOString(),
+                type: type
+            });
+        }
+
+        // Agent functions
+        function updateAgentStatus(data) {
+            agents[data.agent_id] = data;
+            renderAgentsList();
+        }
+
+        function renderAgentsList() {
+            const container = document.getElementById('agentsList');
+            container.innerHTML = '';
+            
+            for (const [agentId, agent] of Object.entries(agents)) {
+                const agentDiv = document.createElement('div');
+                agentDiv.className = 'bg-gray-700 p-3 rounded-lg border border-gray-600';
+                
+                const statusColor = agent.status === 'online' ? 'bg-green-400' : 'bg-gray-400';
+                
+                agentDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 ${statusColor} rounded-full"></div>
+                            <div>
+                                <div class="font-semibold text-sm">${agent.name}</div>
+                                <div class="text-xs text-gray-400">${agent.type}</div>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-400">${agent.unread_count || 0} msgs</div>
+                    </div>
+                `;
+                
+                container.appendChild(agentDiv);
+            }
+            
+            document.getElementById('agentCount').textContent = Object.keys(agents).length;
+        }
+
+        // Trading functions
+        function addTradingSignal(data) {
+            const container = document.getElementById('tradingSignals');
+            const signalDiv = document.createElement('div');
+            
+            const signalColor = data.action === 'BUY' ? 'bg-green-600' : 
+                              data.action === 'SELL' ? 'bg-red-600' : 'bg-yellow-600';
+            
+            signalDiv.className = `${signalColor} p-3 rounded-lg signal-badge`;
+            
+            signalDiv.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="font-semibold text-sm">${data.symbol}</div>
+                        <div class="text-xs">${data.action} @ $${data.price}</div>
+                        <div class="text-xs opacity-80">${data.reason}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs font-semibold">${Math.round(data.confidence * 100)}%</div>
+                        <div class="text-xs">${new Date(data.timestamp).toLocaleTimeString()}</div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertBefore(signalDiv, container.firstChild);
+            
+            // Keep only last 5 signals
+            while (container.children.length > 5) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        function requestTradingUpdate() {
+            socket.emit('request_trading_update');
+            addSystemMessage('Requesting trading analysis...', 'info');
+        }
+
+        // Dropshipping functions
+        function updateDropshippingOps(data) {
+            const container = document.getElementById('dropshippingOps');
+            container.innerHTML = '';
+            
+            if (data.orders) {
+                data.orders.forEach(order => {
+                    const orderDiv = document.createElement('div');
+                    orderDiv.className = 'bg-gray-700 p-3 rounded-lg border border-gray-600';
+                    
+                    orderDiv.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="font-semibold text-sm">Order ${order.id.slice(-8)}</div>
+                                <div class="text-xs">${order.product_name}</div>
+                                <div class="text-xs opacity-80">${order.status}</div>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-sm font-semibold">$${order.total_price}</div>
+                                <div class="text-xs">${new Date(order.order_date).toLocaleTimeString()}</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(orderDiv);
+                });
+            }
+        }
+
+        function requestDropshippingUpdate() {
+            socket.emit('request_dropshipping_update');
+            addSystemMessage('Requesting dropshipping status...', 'info');
+        }
+
+        // Task functions
+        function updateTask(data) {
+            tasks[data.task_id] = data;
+            renderTasks();
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('activeTasks');
+            container.innerHTML = '';
+            
+            const activeTasks = Object.values(tasks).filter(t => t.status === 'IN_PROGRESS');
+            
+            activeTasks.forEach(task => {
+                const taskDiv = document.createElement('div');
+                taskDiv.className = 'bg-gray-700 p-3 rounded-lg border border-gray-600';
+                
+                taskDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <div class="font-semibold text-sm">${task.assigned_to}</div>
+                            <div class="text-xs">${task.description}</div>
+                        </div>
+                        <div class="text-xs text-yellow-400">${task.status}</div>
+                    </div>
+                `;
+                
+                container.appendChild(taskDiv);
+            });
+            
+            document.getElementById('taskCount').textContent = activeTasks.length;
+        }
+
+        // Help requests
+        function addHelpRequest(data) {
+            const container = document.getElementById('helpRequests');
+            const requestDiv = document.createElement('div');
+            
+            requestDiv.className = 'bg-red-600 p-3 rounded-lg';
+            
+            requestDiv.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="font-semibold text-sm">${data.agent_name}</div>
+                        <div class="text-xs">${data.description}</div>
+                    </div>
+                    <div class="text-xs">${data.urgency}</div>
+                </div>
+            `;
+            
+            container.insertBefore(requestDiv, container.firstChild);
+            
+            // Keep only last 3 requests
+            while (container.children.length > 3) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        // Performance metrics
+        function updatePerformanceMetrics(data) {
+            document.getElementById('totalRevenue').textContent = `$${data.total_revenue || 0}`;
+            document.getElementById('tradingPNL').textContent = `$${data.trading_pnl || 0}`;
+            document.getElementById('ordersCompleted').textContent = data.orders_completed || 0;
+            document.getElementById('successRate').textContent = `${data.success_rate || 0}%`;
+            
+            // Update chart
+            if (performanceChart && data.chart_data) {
+                performanceChart.data.datasets[0].data = data.chart_data;
+                performanceChart.update();
+            }
+        }
+
+        // Chart initialization
+        function initializeChart() {
+            const ctx = document.getElementById('performanceChart').getContext('2d');
+            performanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['1h', '2h', '3h', '4h', '5h', '6h'],
+                    datasets: [{
+                        label: 'Revenue',
+                        data: [0, 0, 0, 0, 0, 0],
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: 'white'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: 'white'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Request updates
+        function requestUpdates() {
+            socket.emit('get_system_status');
+            requestTradingUpdate();
+            requestDropshippingUpdate();
+        }
+
+        // Auto-update every 30 seconds
+        setInterval(requestUpdates, 30000);
+
+        // Enter key to send message
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>

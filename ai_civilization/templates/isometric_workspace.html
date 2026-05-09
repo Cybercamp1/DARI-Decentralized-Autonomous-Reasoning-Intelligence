@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏢 3D AI Office Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            overflow: hidden;
+            perspective: 1000px;
+        }
+        
+        .workspace-3d {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            transform-style: preserve-3d;
+            transform: rotateX(45deg) rotateY(0deg) rotateZ(0deg) scale(0.8);
+            transform-origin: center center;
+            perspective: 2000px;
+        }
+        
+        .floor {
+            position: absolute;
+            width: 1200px;
+            height: 800px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotateX(90deg) translateZ(-100px);
+            background: linear-gradient(45deg, #374151 25%, #4b5563 25%, #4b5563 50%, #374151 50%, #374151 75%, #4b5563 75%, #4b5563);
+            background-size: 40px 40px;
+            border: 2px solid #1f2937;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+        }
+        
+        .workstation {
+            position: absolute;
+            transform-style: preserve-3d;
+            transition: all 0.3s ease;
+        }
+        
+        .desk {
+            position: absolute;
+            background: linear-gradient(135deg, #8b4513, #a0522d);
+            border: 1px solid #654321;
+            transform-style: preserve-3d;
+        }
+        
+        .desk-top {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #a0522d, #8b4513);
+            transform: translateZ(20px);
+            border: 1px solid #654321;
+        }
+        
+        .desk-front {
+            position: absolute;
+            width: 100%;
+            height: 40px;
+            background: linear-gradient(135deg, #654321, #8b4513);
+            transform: rotateX(90deg) translateZ(20px);
+            bottom: 0;
+        }
+        
+        .desk-side {
+            position: absolute;
+            width: 40px;
+            height: 100%;
+            background: linear-gradient(135deg, #654321, #8b4513);
+            transform: rotateY(90deg) translateZ(20px);
+            right: 0;
+        }
+        
+        .computer-monitor {
+            position: absolute;
+            width: 60px;
+            height: 40px;
+            background: linear-gradient(135deg, #1f2937, #374151);
+            border: 2px solid #4b5563;
+            transform: translateZ(40px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: #10b981;
+            font-weight: bold;
+        }
+        
+        .keyboard {
+            position: absolute;
+            width: 50px;
+            height: 15px;
+            background: linear-gradient(135deg, #374151, #4b5563);
+            border: 1px solid #6b7280;
+            transform: translateZ(21px);
+            border-radius: 2px;
+        }
+        
+        .chair {
+            position: absolute;
+            transform-style: preserve-3d;
+        }
+        
+        .chair-seat {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border: 1px solid #1d4ed8;
+            transform: translateZ(30px);
+            border-radius: 4px;
+        }
+        
+        .chair-back {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            border: 1px solid #1e40af;
+            transform: rotateX(15deg) translateZ(50px);
+            transform-origin: bottom center;
+            border-radius: 4px 4px 0 0;
+        }
+        
+        .agent-3d {
+            position: absolute;
+            width: 30px;
+            height: 40px;
+            transform-style: preserve-3d;
+            transition: all 2s ease-in-out;
+            cursor: pointer;
+        }
+        
+        .agent-body {
+            position: absolute;
+            width: 20px;
+            height: 30px;
+            background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+            border: 1px solid #6d28d9;
+            transform: translateZ(20px);
+            border-radius: 8px 8px 4px 4px;
+        }
+        
+        .agent-head {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            border: 1px solid #d97706;
+            transform: translateZ(50px) translateX(2.5px);
+            border-radius: 50%;
+        }
+        
+        .agent-trader .agent-body {
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-color: #047857;
+        }
+        
+        .agent-shipper .agent-body {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border-color: #1d4ed8;
+        }
+        
+        .agent-manager .agent-body {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            border-color: #b91c1c;
+        }
+        
+        .agent-walking {
+            animation: walk 2s infinite;
+        }
+        
+        @keyframes walk {
+            0%, 100% { transform: translateZ(0px) rotateX(0deg); }
+            50% { transform: translateZ(5px) rotateX(5deg); }
+        }
+        
+        .thought-bubble-3d {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            color: #1f2937;
+            padding: 8px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            white-space: nowrap;
+            transform: translateZ(70px) translateX(-50%);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            animation: float 3s ease-in-out;
+            z-index: 100;
+        }
+        
+        .thought-bubble-3d::after {
+            content: '';
+            position: absolute;
+            bottom: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 6px solid rgba(255, 255, 255, 0.95);
+        }
+        
+        @keyframes float {
+            0%, 100% { opacity: 0; transform: translateZ(70px) translateX(-50%) translateY(-10px); }
+            20% { opacity: 1; transform: translateZ(70px) translateX(-50%) translateY(0px); }
+            80% { opacity: 1; transform: translateZ(70px) translateX(-50%) translateY(0px); }
+            100% { opacity: 0; transform: translateZ(70px) translateX(-50%) translateY(-10px); }
+        }
+        
+        .control-panel-3d {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            z-index: 1000;
+            min-width: 200px;
+        }
+        
+        .status-indicator {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 15px;
+            z-index: 1000;
+        }
+        
+        .wall {
+            position: absolute;
+            background: linear-gradient(135deg, #374151, #1f2937);
+            border: 1px solid #111827;
+        }
+        
+        .wall-back {
+            width: 1200px;
+            height: 200px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotateX(90deg) translateZ(400px);
+        }
+        
+        .wall-left {
+            width: 200px;
+            height: 800px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotateY(90deg) translateZ(600px);
+        }
+        
+        .wall-right {
+            width: 200px;
+            height: 800px;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotateY(-90deg) translateZ(600px);
+        }
+        
+        .window {
+            position: absolute;
+            width: 80px;
+            height: 60px;
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+            border: 2px solid #1e40af;
+            transform: translateZ(10px);
+            border-radius: 4px;
+        }
+        
+        .window:nth-child(1) {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotateX(90deg) translateZ(410px) translateX(-200px);
+        }
+        
+        .window:nth-child(2) {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotateX(90deg) translateZ(410px) translateX(200px);
+        }
+        
+        .plant {
+            position: absolute;
+            transform-style: preserve-3d;
+        }
+        
+        .plant-pot {
+            position: absolute;
+            width: 20px;
+            height: 15px;
+            background: linear-gradient(135deg, #a16207, #92400e);
+            border: 1px solid #78350f;
+            transform: translateZ(7.5px);
+            border-radius: 2px;
+        }
+        
+        .plant-stem {
+            position: absolute;
+            width: 3px;
+            height: 20px;
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            transform: translateZ(20px) translateX(8.5px);
+            border-radius: 1px;
+        }
+        
+        .plant-leaves {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            transform: translateZ(40px) translateX(2.5px);
+            border-radius: 50%;
+        }
+        
+        .plant:nth-child(1) {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) translateX(-400px) translateY(-100px);
+        }
+        
+        .plant:nth-child(2) {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) translateX(400px) translateY(-100px);
+        }
+    </style>
+</head>
+<body>
+    <div class="workspace-3d" id="workspace3d">
+        <!-- Floor -->
+        <div class="floor"></div>
+        
+        <!-- Walls -->
+        <div class="wall wall-back"></div>
+        <div class="wall wall-left"></div>
+        <div class="wall wall-right"></div>
+        
+        <!-- Windows -->
+        <div class="window" style="top: 50px; left: 200px;"></div>
+        <div class="window" style="top: 50px; right: 200px;"></div>
+        
+        <!-- Workstations will be added here -->
+        <div id="workstations"></div>
+        
+        <!-- Agents will be added here -->
+        <div id="agents3d"></div>
+        
+        <!-- Decorations -->
+        <div class="plant" style="position: absolute; top: 200px; left: 100px;">
+            <div class="plant-pot"></div>
+            <div class="plant-stem"></div>
+            <div class="plant-leaves"></div>
+        </div>
+        
+        <div class="plant" style="position: absolute; top: 200px; right: 100px;">
+            <div class="plant-pot"></div>
+            <div class="plant-stem"></div>
+            <div class="plant-leaves"></div>
+        </div>
+    </div>
+    
+    <!-- Status Panel -->
+    <div class="status-indicator">
+        <h3 class="text-white font-bold mb-3">🏢 AI Office Status</h3>
+        <div class="space-y-2 text-sm">
+            <div class="flex justify-between text-gray-300">
+                <span>Agents:</span>
+                <span id="agentCount" class="text-green-400 font-bold">0</span>
+            </div>
+            <div class="flex justify-between text-gray-300">
+                <span>Workstations:</span>
+                <span id="workstationCount" class="text-blue-400 font-bold">0</span>
+            </div>
+            <div class="flex justify-between text-gray-300">
+                <span>Status:</span>
+                <span id="officeStatus" class="text-green-400 font-bold">Active</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Control Panel -->
+    <div class="control-panel-3d">
+        <h3 class="text-white font-bold mb-4">🎮 Office Controls</h3>
+        <div class="space-y-3">
+            <button onclick="startOffice()" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                ▶️ Start Office
+            </button>
+            <button onclick="pauseOffice()" class="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                ⏸️ Pause Office
+            </button>
+            <button onclick="addAgent()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                ➕ Add Agent
+            </button>
+            <button onclick="addWorkstation()" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                🖥️ Add Desk
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        let agents = {};
+        let workstations = [];
+        let isRunning = false;
+        let agentIdCounter = 1;
+        let workstationIdCounter = 1;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeWorkstations();
+            initializeAgents();
+            startOfficeAnimation();
+        });
+
+        // Socket.IO events
+        socket.on('connect', () => {
+            console.log('Connected to 3D office workspace');
+        });
+
+        socket.on('agent_update', (data) => {
+            updateAgent3D(data);
+        });
+
+        // Initialize workstations
+        function initializeWorkstations() {
+            const positions = [
+                { x: -300, y: -100 },
+                { x: -100, y: -100 },
+                { x: 100, y: -100 },
+                { x: -200, y: 100 },
+                { x: 0, y: 100 }
+            ];
+            
+            positions.forEach(pos => {
+                createWorkstation(pos.x, pos.y);
+            });
+        }
+
+        function createWorkstation(x, y) {
+            const container = document.getElementById('workstations');
+            const workstation = document.createElement('div');
+            workstation.className = 'workstation';
+            workstation.id = `workstation-${workstationIdCounter}`;
+            workstation.style.left = '50%';
+            workstation.style.top = '50%';
+            workstation.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+            
+            workstation.innerHTML = `
+                <div class="desk" style="width: 80px; height: 60px;">
+                    <div class="desk-top"></div>
+                    <div class="desk-front"></div>
+                    <div class="desk-side"></div>
+                </div>
+                <div class="computer-monitor" style="top: -20px; left: 10px;">
+                    <span>WORK</span>
+                </div>
+                <div class="keyboard" style="top: 2px; left: 15px;"></div>
+                <div class="chair">
+                    <div class="chair-seat"></div>
+                    <div class="chair-back"></div>
+                </div>
+            `;
+            
+            container.appendChild(workstation);
+            workstations.push({
+                id: workstationIdCounter,
+                element: workstation,
+                x: x,
+                y: y,
+                occupied: false
+            });
+            
+            workstationIdCounter++;
+            updateWorkstationCount();
+        }
+
+        // Initialize agents
+        function initializeAgents() {
+            createAgent3D('trader', '📈', 'Alpha Trader');
+            createAgent3D('shipper', '📦', 'Logistics Master');
+            createAgent3D('manager', '👔', 'Operations Manager');
+        }
+
+        function createAgent3D(type, emoji, name) {
+            const container = document.getElementById('agents3d');
+            const agent = document.createElement('div');
+            agent.className = `agent-3d agent-${type}`;
+            agent.id = `agent-${agentIdCounter}`;
+            
+            agent.innerHTML = `
+                <div class="agent-head"></div>
+                <div class="agent-body"></div>
+            `;
+            
+            // Random starting position
+            const startX = (Math.random() - 0.5) * 800;
+            const startY = (Math.random() - 0.5) * 400;
+            
+            agent.style.left = '50%';
+            agent.style.top = '50%';
+            agent.style.transform = `translate(calc(-50% + ${startX}px), calc(-50% + ${startY}px))`;
+            
+            agent.onclick = () => selectAgent3D(agentIdCounter);
+            
+            container.appendChild(agent);
+            
+            agents[agentIdCounter] = {
+                element: agent,
+                type: type,
+                name: name,
+                position: { x: startX, y: startY },
+                targetWorkstation: null,
+                working: false,
+                currentTask: null
+            };
+            
+            agentIdCounter++;
+            updateAgentCount();
+        }
+
+        function selectAgent3D(agentId) {
+            const agent = agents[agentId];
+            if (agent) {
+                showThoughtBubble3D(agentId, `Hi! I'm ${agent.name}`);
+                highlightAgent3D(agentId);
+            }
+        }
+
+        function showThoughtBubble3D(agentId, message) {
+            const agent = agents[agentId];
+            if (!agent) return;
+            
+            // Remove existing bubble
+            const existingBubble = document.getElementById(`bubble-${agentId}`);
+            if (existingBubble) {
+                existingBubble.remove();
+            }
+            
+            // Create new bubble
+            const bubble = document.createElement('div');
+            bubble.id = `bubble-${agentId}`;
+            bubble.className = 'thought-bubble-3d';
+            bubble.textContent = message;
+            
+            // Position bubble above agent
+            const agentRect = agent.element.getBoundingClientRect();
+            bubble.style.left = (agentRect.left + agentRect.width / 2) + 'px';
+            bubble.style.top = (agentRect.top - 20) + 'px';
+            
+            document.body.appendChild(bubble);
+            
+            // Remove after animation
+            setTimeout(() => {
+                if (bubble.parentNode) {
+                    bubble.remove();
+                }
+            }, 3000);
+        }
+
+        function highlightAgent3D(agentId) {
+            const agent = agents[agentId];
+            if (agent) {
+                agent.element.style.transform = 'translateZ(30px) scale(1.2)';
+                setTimeout(() => {
+                    agent.element.style.transform = 'translateZ(0px) scale(1)';
+                }, 500);
+            }
+        }
+
+        // Agent movement and work simulation
+        function startOfficeAnimation() {
+            if (!isRunning) return;
+            
+            Object.keys(agents).forEach(agentId => {
+                const agent = agents[agentId];
+                if (!agent.working) {
+                    moveAgentToWorkstation(agentId);
+                }
+            });
+            
+            // Continue animation loop
+            setTimeout(() => {
+                if (isRunning) {
+                    startOfficeAnimation();
+                }
+            }, 4000);
+        }
+
+        function moveAgentToWorkstation(agentId) {
+            const agent = agents[agentId];
+            if (!agent) return;
+            
+            // Find available workstation
+            const availableWorkstation = workstations.find(ws => !ws.occupied);
+            if (!availableWorkstation) return;
+            
+            // Move agent to workstation
+            const targetX = availableWorkstation.x + 25;
+            const targetY = availableWorkstation.y + 10;
+            
+            agent.element.style.left = '50%';
+            agent.element.style.top = '50%';
+            agent.element.style.transform = `translate(calc(-50% + ${targetX}px), calc(-50% + ${targetY}px))`;
+            agent.element.classList.add('agent-walking');
+            
+            agent.position = { x: targetX, y: targetY };
+            agent.targetWorkstation = availableWorkstation.id;
+            
+            // Mark workstation as occupied
+            availableWorkstation.occupied = true;
+            
+            // Start working after movement
+            setTimeout(() => {
+                startAgentWork3D(agentId);
+            }, 2000);
+        }
+
+        function startAgentWork3D(agentId) {
+            const agent = agents[agentId];
+            if (!agent) return;
+            
+            agent.working = true;
+            agent.element.classList.remove('agent-walking');
+            
+            // Update workstation monitor
+            const workstation = workstations.find(ws => ws.id === agent.targetWorkstation);
+            if (workstation) {
+                const monitor = workstation.element.querySelector('.computer-monitor span');
+                if (monitor) {
+                    monitor.textContent = agent.type.toUpperCase();
+                    monitor.style.color = agent.type === 'trader' ? '#10b981' : 
+                                           agent.type === 'shipper' ? '#3b82f6' : '#ef4444';
+                }
+            }
+            
+            // Show working message
+            const messages = {
+                trader: ['Analyzing markets...', 'Placing trades...', 'Monitoring signals...'],
+                shipper: ['Processing orders...', 'Managing logistics...', 'Tracking shipments...'],
+                manager: ['Coordinating tasks...', 'Managing operations...', 'Reviewing performance...']
+            };
+            
+            const agentMessages = messages[agent.type] || ['Working...'];
+            const message = agentMessages[Math.floor(Math.random() * agentMessages.length)];
+            
+            showThoughtBubble3D(agentId, message);
+            
+            // Work for random duration
+            const workDuration = Math.random() * 5000 + 3000;
+            setTimeout(() => {
+                stopAgentWork3D(agentId);
+            }, workDuration);
+        }
+
+        function stopAgentWork3D(agentId) {
+            const agent = agents[agentId];
+            if (!agent) return;
+            
+            agent.working = false;
+            
+            // Free workstation
+            const workstation = workstations.find(ws => ws.id === agent.targetWorkstation);
+            if (workstation) {
+                workstation.occupied = false;
+                const monitor = workstation.element.querySelector('.computer-monitor span');
+                if (monitor) {
+                    monitor.textContent = 'WORK';
+                    monitor.style.color = '#10b981';
+                }
+            }
+            
+            agent.targetWorkstation = null;
+            
+            // Move to random position or next workstation
+            if (Math.random() > 0.3) {
+                setTimeout(() => {
+                    if (isRunning) {
+                        moveAgentToWorkstation(agentId);
+                    }
+                }, 1000);
+            } else {
+                moveAgentRandomly3D(agentId);
+            }
+        }
+
+        function moveAgentRandomly3D(agentId) {
+            const agent = agents[agentId];
+            if (!agent) return;
+            
+            const targetX = (Math.random() - 0.5) * 800;
+            const targetY = (Math.random() - 0.5) * 400;
+            
+            agent.element.style.left = '50%';
+            agent.element.style.top = '50%';
+            agent.element.style.transform = `translate(calc(-50% + ${targetX}px), calc(-50% + ${targetY}px))`;
+            agent.element.classList.add('agent-walking');
+            
+            agent.position = { x: targetX, y: targetY };
+            agent.targetWorkstation = null;
+            
+            setTimeout(() => {
+                agent.element.classList.remove('agent-walking');
+                setTimeout(() => {
+                    if (isRunning) {
+                        moveAgentToWorkstation(agentId);
+                    }
+                }, 1000);
+            }, 2000);
+        }
+
+        // Control functions
+        function startOffice() {
+            isRunning = true;
+            startOfficeAnimation();
+            document.getElementById('officeStatus').textContent = 'Active';
+            document.getElementById('officeStatus').className = 'text-green-400 font-bold';
+        }
+
+        function pauseOffice() {
+            isRunning = false;
+            Object.keys(agents).forEach(agentId => {
+                const agent = agents[agentId];
+                agent.element.classList.remove('agent-walking');
+            });
+            document.getElementById('officeStatus').textContent = 'Paused';
+            document.getElementById('officeStatus').className = 'text-yellow-400 font-bold';
+        }
+
+        function addAgent() {
+            const types = ['trader', 'shipper', 'manager'];
+            const emojis = ['📈', '📦', '👔'];
+            const names = ['New Trader', 'New Shipper', 'New Manager'];
+            
+            const randomIndex = Math.floor(Math.random() * types.length);
+            createAgent3D(types[randomIndex], emojis[randomIndex], names[randomIndex]);
+        }
+
+        function addWorkstation() {
+            const x = (Math.random() - 0.5) * 600;
+            const y = (Math.random() - 0.5) * 300;
+            createWorkstation(x, y);
+        }
+
+        // Update functions
+        function updateAgentCount() {
+            document.getElementById('agentCount').textContent = Object.keys(agents).length;
+        }
+
+        function updateWorkstationCount() {
+            document.getElementById('workstationCount').textContent = workstations.length;
+        }
+
+        function updateAgent3D(data) {
+            // Handle real-time updates from backend
+            if (data.agent_id && agents[data.agent_id]) {
+                showThoughtBubble3D(data.agent_id, data.message || 'Working...');
+            }
+        }
+
+        // Auto-start office
+        setTimeout(() => {
+            startOffice();
+        }, 1000);
+    </script>
+</body>
+</html>

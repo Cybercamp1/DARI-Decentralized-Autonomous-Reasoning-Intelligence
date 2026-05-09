@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🤖 AI Business Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0f0f0f;
+        }
+        
+        .sidebar {
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+            border-right: 1px solid #2a2a3e;
+        }
+        
+        .main-content {
+            background: #0f0f0f;
+        }
+        
+        .chat-panel {
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+            border-left: 1px solid #2a2a3e;
+        }
+        
+        .agent-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .agent-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(139, 92, 246, 0.5);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .status-online {
+            background: #10b981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+        }
+        
+        .status-offline {
+            background: #6b7280;
+        }
+        
+        .chat-message {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .chat-input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: #8b5cf6;
+            background: rgba(255, 255, 255, 0.08);
+        }
+        
+        .metric-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+        }
+        
+        .signal-badge {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        
+        .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="h-screen overflow-hidden">
+    <div class="flex h-full">
+        <!-- Left Sidebar - Agents -->
+        <div class="sidebar w-64 h-full flex flex-col">
+            <div class="p-4 border-b border-gray-700">
+                <h2 class="text-lg font-semibold text-white mb-2">🤖 Agents</h2>
+                <div class="flex items-center space-x-2 text-sm text-gray-400">
+                    <div class="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span id="onlineCount">2 Online</span>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3" id="agentsList">
+                <!-- Agents will be populated here -->
+            </div>
+            
+            <div class="p-4 border-t border-gray-700">
+                <button onclick="addAgent()" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                    + Add Agent
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content flex-1 h-full overflow-hidden">
+            <!-- Top Bar -->
+            <div class="border-b border-gray-800 px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">AI Business Dashboard</h1>
+                        <p class="text-gray-400 text-sm">Real-time operations management</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="text-sm text-gray-400">
+                            <span class="text-green-400">●</span> System Online
+                        </div>
+                        <div class="text-sm text-gray-400">
+                            Last update: <span id="lastUpdate">--:--</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Content Grid -->
+            <div class="p-6 h-full overflow-y-auto scrollbar-thin">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                    <!-- Trading Signals -->
+                    <div class="metric-card">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-white font-medium">📈 Trading Signals</h3>
+                            <div class="signal-badge w-2 h-2 bg-green-500 rounded-full"></div>
+                        </div>
+                        <div id="tradingSignals" class="space-y-2">
+                            <!-- Signals will appear here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Orders -->
+                    <div class="metric-card">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-white font-medium">📦 Orders</h3>
+                            <span class="text-sm text-gray-400" id="orderCount">0</span>
+                        </div>
+                        <div id="ordersList" class="space-y-2">
+                            <!-- Orders will appear here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Performance -->
+                    <div class="metric-card">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-white font-medium">💰 Performance</h3>
+                            <span class="text-sm text-green-400">+12.5%</span>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-400">Revenue</span>
+                                <span class="text-white font-medium" id="revenue">$0</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-400">P&L</span>
+                                <span class="text-white font-medium" id="pnl">$0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Activity Feed -->
+                <div class="metric-card">
+                    <h3 class="text-white font-medium mb-4">🔄 Recent Activity</h3>
+                    <div id="activityFeed" class="space-y-3 max-h-64 overflow-y-auto scrollbar-thin">
+                        <!-- Activity will appear here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Chat -->
+        <div class="chat-panel w-80 h-full flex flex-col">
+            <div class="p-4 border-b border-gray-700">
+                <h3 class="text-lg font-semibold text-white mb-2">💬 Chat</h3>
+                <div class="flex items-center space-x-2 text-sm text-gray-400">
+                    <span>Agent Communication</span>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto scrollbar-thin p-4" id="chatMessages">
+                <!-- Messages will appear here -->
+            </div>
+            
+            <div class="p-4 border-t border-gray-700">
+                <div class="flex space-x-2">
+                    <input type="text" id="chatInput" placeholder="Type message..." 
+                        class="chat-input flex-1 px-3 py-2 rounded-lg text-sm"
+                        onkeypress="if(event.key==='Enter') sendMessage()">
+                    <button onclick="sendMessage()" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        Send
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Socket.IO connection
+        const socket = io();
+        let agents = {};
+        let messages = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeAgents();
+            socket.emit('get_system_status');
+            updateLastTime();
+        });
+
+        // Socket.IO events
+        socket.on('connect', () => {
+            console.log('Connected to dashboard');
+            addSystemMessage('Connected to AI Business Network', 'system');
+        });
+
+        socket.on('agent_status', (data) => {
+            updateAgentStatus(data);
+        });
+
+        socket.on('trading_signal', (data) => {
+            addTradingSignal(data);
+            addActivityMessage(`📈 ${data.agent_name}: ${data.action} ${data.symbol} @ $${data.price}`, 'trading');
+        });
+
+        socket.on('dropshipping_update', (data) => {
+            addOrder(data);
+            addActivityMessage(`📦 ${data.agent_name}: Processed order for ${data.product_name}`, 'order');
+        });
+
+        socket.on('agent_message', (data) => {
+            addChatMessage(data);
+        });
+
+        socket.on('performance_update', (data) => {
+            updatePerformance(data);
+        });
+
+        // Agent functions
+        function initializeAgents() {
+            const initialAgents = [
+                { id: 'trader_001', name: 'Alpha Trader', type: 'Trader', status: 'online' },
+                { id: 'dropship_001', name: 'Logistics Master', type: 'Dropshipping', status: 'online' }
+            ];
+            
+            initialAgents.forEach(agent => {
+                agents[agent.id] = agent;
+            });
+            
+            renderAgentsList();
+        }
+
+        function updateAgentStatus(data) {
+            agents[data.agent_id] = data;
+            renderAgentsList();
+        }
+
+        function renderAgentsList() {
+            const container = document.getElementById('agentsList');
+            container.innerHTML = '';
+            
+            Object.values(agents).forEach(agent => {
+                const agentDiv = document.createElement('div');
+                agentDiv.className = 'agent-card p-3 rounded-lg cursor-pointer';
+                agentDiv.onclick = () => selectAgent(agent.id);
+                
+                agentDiv.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="status-dot ${agent.status === 'online' ? 'status-online' : 'status-offline'}"></div>
+                        <div class="flex-1">
+                            <div class="text-white font-medium text-sm">${agent.name}</div>
+                            <div class="text-gray-400 text-xs">${agent.type}</div>
+                        </div>
+                        <div class="text-gray-400 text-xs">${agent.status}</div>
+                    </div>
+                `;
+                
+                container.appendChild(agentDiv);
+            });
+            
+            const onlineCount = Object.values(agents).filter(a => a.status === 'online').length;
+            document.getElementById('onlineCount').textContent = `${onlineCount} Online`;
+        }
+
+        function selectAgent(agentId) {
+            const agent = agents[agentId];
+            addSystemMessage(`Selected: ${agent.name} (${agent.type})`, 'info');
+        }
+
+        // Trading signals
+        function addTradingSignal(data) {
+            const container = document.getElementById('tradingSignals');
+            const signalDiv = document.createElement('div');
+            
+            const signalColor = data.action === 'BUY' ? 'bg-green-600' : 
+                              data.action === 'SELL' ? 'bg-red-600' : 'bg-yellow-600';
+            
+            signalDiv.className = `${signalColor} p-2 rounded text-xs text-white`;
+            signalDiv.innerHTML = `
+                <div class="flex justify-between items-center">
+                    <span>${data.symbol}</span>
+                    <span>${data.action}</span>
+                </div>
+                <div class="text-xs opacity-80">$${data.price}</div>
+            `;
+            
+            container.insertBefore(signalDiv, container.firstChild);
+            
+            // Keep only last 3 signals
+            while (container.children.length > 3) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        // Orders
+        function addOrder(data) {
+            const container = document.getElementById('ordersList');
+            const orderDiv = document.createElement('div');
+            
+            orderDiv.className = 'bg-gray-700 p-2 rounded text-xs';
+            orderDiv.innerHTML = `
+                <div class="text-white">${data.product_name}</div>
+                <div class="text-gray-400">$${data.total_price}</div>
+            `;
+            
+            container.insertBefore(orderDiv, container.firstChild);
+            
+            // Keep only last 3 orders
+            while (container.children.length > 3) {
+                container.removeChild(container.lastChild);
+            }
+            
+            document.getElementById('orderCount').textContent = container.children.length;
+        }
+
+        // Performance
+        function updatePerformance(data) {
+            document.getElementById('revenue').textContent = `$${data.total_revenue || 0}`;
+            document.getElementById('pnl').textContent = `$${data.trading_pnl || 0}`;
+        }
+
+        // Activity feed
+        function addActivityMessage(message, type) {
+            const container = document.getElementById('activityFeed');
+            const activityDiv = document.createElement('div');
+            
+            activityDiv.className = 'flex items-start space-x-2 text-sm';
+            activityDiv.innerHTML = `
+                <div class="text-gray-400">${new Date().toLocaleTimeString()}</div>
+                <div class="text-white flex-1">${message}</div>
+            `;
+            
+            container.insertBefore(activityDiv, container.firstChild);
+            
+            // Keep only last 10 activities
+            while (container.children.length > 10) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        // Chat functions
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                socket.emit('user_message', {
+                    content: message,
+                    timestamp: new Date().toISOString()
+                });
+                
+                addChatMessage({
+                    sender: 'user',
+                    content: message,
+                    timestamp: new Date().toISOString()
+                });
+                
+                input.value = '';
+            }
+        }
+
+        function addChatMessage(data) {
+            const container = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            
+            const isUser = data.sender === 'user';
+            const isSystem = data.sender === 'system';
+            
+            messageDiv.className = 'chat-message';
+            messageDiv.innerHTML = `
+                <div class="flex items-start space-x-2">
+                    <div class="text-xs text-gray-400">${data.sender}</div>
+                    <div class="flex-1">
+                        <div class="text-white text-sm">${data.content}</div>
+                        <div class="text-xs text-gray-500 mt-1">${new Date(data.timestamp).toLocaleTimeString()}</div>
+                    </div>
+                </div>
+            `;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function addSystemMessage(content, type) {
+            addChatMessage({
+                sender: 'system',
+                content: content,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // Utility functions
+        function updateLastTime() {
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            setInterval(() => {
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            }, 60000);
+        }
+
+        function addAgent() {
+            addSystemMessage('Add agent feature coming soon...', 'info');
+        }
+
+        // Auto-refresh
+        setInterval(() => {
+            socket.emit('get_system_status');
+        }, 30000);
+    </script>
+</body>
+</html>
