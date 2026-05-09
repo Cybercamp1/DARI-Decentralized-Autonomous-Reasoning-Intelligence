@@ -32,6 +32,10 @@ Unlike traditional governance dashboards that rely on static data or simulated l
 - **Persistence**: JSON-based File Memory (Pure JS, no native deps)
 - **Blockchain**: ethers.js (Real-time Monitoring & Event Simulation)
 
+## Demo video 
+
+https://github.com/user-attachments/assets/6c563fb6-f961-4e30-929b-818d2e05bea1
+
 ---
 
 ## 🛠️ Installation & Setup
@@ -48,7 +52,7 @@ cd DARI-Decentralized-Autonomous-Reasoning-Intelligence
 
 ### 2. Backend Setup
 ```bash
-cd ai_civilization/backend
+cd backend
 npm install
 # Create .env file
 echo "GEMINI_API_KEY=your_key_here" > .env
@@ -67,9 +71,9 @@ npm run dev
 ## 🌐 Deployment Guide
 
 ### Smart Contract (SecureChain AI)
-The contracts are located in `ai_civilization/contracts/contracts/`.
+The contracts are located in `contracts/`.
 1. Open [Remix IDE](https://remix.ethereum.org/).
-2. Copy `ProposalManager.sol` and `Treasury.sol`.
+2. Copy `HermesDAO.sol` and `Treasury.sol`.
 3. Compile using Solidity 0.8.19.
 4. Set Environment to "Injected Provider - MetaMask".
 5. Connect to **SecureChain AI Mainnet**.
@@ -78,7 +82,7 @@ The contracts are located in `ai_civilization/contracts/contracts/`.
 ### Live DApp (Vercel)
 The frontend is optimized for Vercel deployment.
 1. Connect your GitHub repo to Vercel.
-2. Set the Root Directory to `ai_civilization/frontend`.
+2. Set the Root Directory to `frontend`.
 3. Set the Environment Variable `VITE_SOCKET_URL` to your backend URL.
 4. Deploy.
 
