@@ -69,7 +69,11 @@ export async function reason(agentRole, taskPrompt, context = {}) {
       };
     }
   } catch (err) {
-    console.error(`[AI] Gemini reasoning error for ${agentRole}:`, err.message);
+    if (err.message.includes('429') || err.message.includes('quota')) {
+      console.warn(`[AI] Rate limit hit for ${agentRole}. Switching to local structured reasoning.`);
+    } else {
+      console.error(`[AI] Gemini reasoning error for ${agentRole}:`, err.message);
+    }
     return generateFallbackReasoning(agentRole, taskPrompt, context);
   }
 }

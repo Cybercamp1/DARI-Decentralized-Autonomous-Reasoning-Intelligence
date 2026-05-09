@@ -138,6 +138,30 @@ setInterval(() => {
   }
 }, 5000);
 
+// ── Autonomous Activity Loop ───────────────────
+// Ensures agents are always "doing something" even when no events occur
+setInterval(async () => {
+  const agentKeys = Object.keys(agents);
+  const randomAgent = agents[agentKeys[Math.floor(Math.random() * agentKeys.length)]];
+  
+  if (randomAgent.status === 'MONITORING' || randomAgent.status === 'IDLE') {
+    const tasks = [
+      'Performing periodic security audit of treasury assets',
+      'Analyzing recent governance participation trends',
+      'Scanning mempool for potential MEV opportunities',
+      'Updating risk assessment for active proposals',
+      'Simulating treasury growth scenarios for Q3',
+      'Verifying node synchronization and consensus health'
+    ];
+    
+    const task = tasks[Math.floor(Math.random() * tasks.length)];
+    randomAgent.think(task, { type: 'periodic_maintenance' }).then(reasoning => {
+      randomAgent.generateProof(task, reasoning, 'autonomous_heartbeat');
+      randomAgent.returnToMonitoring();
+    });
+  }
+}, 35000); // Every 35 seconds
+
 // ── REST API ───────────────────────────────────
 app.get('/api/status', (req, res) => {
   res.json({

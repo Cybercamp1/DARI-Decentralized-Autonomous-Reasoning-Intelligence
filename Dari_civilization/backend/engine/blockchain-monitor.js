@@ -54,6 +54,12 @@ export async function initBlockchainMonitor(config = {}) {
 
       isMonitoring = true;
       console.log('[Blockchain] Real-time monitoring active');
+
+      // If no contracts provided, still run synthetic events to keep the dashboard "alive"
+      if (!proposalAddr && !treasuryAddr) {
+        console.log('[Blockchain] No contracts configured — running synthetic events alongside RPC monitoring');
+        startSyntheticMonitoring();
+      }
     } catch (err) {
       console.warn(`[Blockchain] Could not connect to RPC: ${err.message}`);
       console.log('[Blockchain] Running in simulation mode — generating synthetic blockchain events');

@@ -105,6 +105,9 @@ export class BaseAgent {
       ...additionalContext,
     };
 
+    // Add jitter (200ms - 2500ms) to prevent hitting rate limits when multiple agents activate
+    await new Promise(r => setTimeout(r, 200 + Math.random() * 2300));
+
     const output = await reason(this.name, taskPrompt, context);
 
     // Store reasoning in persistent memory
